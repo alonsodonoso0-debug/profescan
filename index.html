@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
-<title>ProfeScan OMR – Lector de pruebas (30 preguntas)</title>
+<title>ProfeScan OMR – Lector de pruebas</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
   #print-root { display: none; }
@@ -33,7 +33,7 @@
 
 <nav class="bg-white border-b border-slate-200 max-w-4xl mx-auto w-full flex sticky top-[52px] z-30">
   <button id="btn-tab-scan" onclick="switchTab('tab-scan')" class="flex-1 py-3 font-medium border-b-2">📷 Escáner</button>
-  <button id="btn-tab-key" onclick="switchTab('tab-key')" class="flex-1 py-3 font-medium border-b-2">✅ Pauta (30)</button>
+  <button id="btn-tab-key" onclick="switchTab('tab-key')" class="flex-1 py-3 font-medium border-b-2">✅ Pauta (<span id="n-tab">30</span>)</button>
   <button id="btn-tab-results" onclick="switchTab('tab-results')" class="flex-1 py-3 font-medium border-b-2">📊 Planilla (<span id="counter-scans">0</span>)</button>
 </nav>
 
@@ -104,6 +104,18 @@
     <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
       <div class="flex flex-wrap items-end justify-between gap-3 border-b border-slate-100 pb-3 mb-3">
         <div class="space-y-2">
+          <div class="flex flex-wrap items-center gap-x-4 gap-y-2 bg-indigo-50 border border-indigo-100 rounded-lg p-2">
+            <label class="text-xs font-medium text-slate-700 flex items-center gap-2">Preguntas a evaluar:
+              <input id="inp-n" type="number" min="1" max="30" step="1" inputmode="numeric" class="border border-slate-300 rounded px-2 py-1 text-sm w-16 bg-white" onchange="changeLayout()">
+            </label>
+            <label class="text-xs font-medium text-slate-700 flex items-center gap-2">Alternativas:
+              <select id="sel-k" class="border border-slate-300 rounded px-2 py-1 text-xs bg-white" onchange="changeLayout()">
+                <option value="4">4 (A–D)</option>
+                <option value="5">5 (A–E)</option>
+              </select>
+            </label>
+            <span class="text-[11px] text-slate-500 basis-full">La hoja impresa es siempre de 30 preguntas. Si evalúas menos (por ejemplo 25), las últimas se ignoran y la nota se calcula solo con las evaluadas; puedes cambiarlo cuando quieras sin perder la planilla. Cambiar las alternativas (A–D / A–E) sí exige una hoja nueva y vacía la planilla.</span>
+          </div>
           <div>
             <label class="text-xs font-medium text-slate-600 block">Nombre de la evaluación (sale en la hoja)</label>
             <input id="inp-title" type="text" maxlength="40" class="border border-slate-300 rounded px-2 py-1 text-sm w-64 max-w-full" placeholder="Ej: Matemática · Unidad 3" oninput="S.title=this.value;persist()">
@@ -160,7 +172,7 @@
 <div id="modal-print" class="fixed inset-0 bg-black/60 z-50 hidden items-center justify-center p-2">
   <div class="bg-white w-full max-w-3xl rounded-xl max-h-[92vh] flex flex-col overflow-hidden">
     <div class="p-3 border-b border-slate-200 flex justify-between items-center bg-slate-50">
-      <h3 class="font-bold text-sm">Hoja de respuestas (30 preguntas)</h3>
+      <h3 id="print-title" class="font-bold text-sm">Hoja de respuestas</h3>
       <div class="flex gap-2 items-center">
         <button onclick="window.print()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-3 py-1.5 rounded-md">🖨 Imprimir</button>
         <button onclick="closeModal('modal-print')" class="text-slate-500 text-lg px-2">✕</button>
@@ -196,12 +208,20 @@
 const OMR = (() => {
   // Geometría de la hoja en milímetros. Origen = centro del marcador superior izquierdo.
   const L = {
-    PX: 4,                // px por mm en la imagen rectificada
-    W: 178, H: 238,       // distancia entre centros de marcadores (ancho, alto)
-    N: 30, OPTS: ['A','B','C','D','E'],
-    rows: 10, colX: [8, 66, 124], bubbleOff: 12, bubbleDX: 8, rowY0: 80, rowDY: 14.5, bubbleR: 2.5,
+    PX: 4, W: 178, H: 238, MIN_N: 5, MAX_N: 50,
+    OPTS: ['A','B','C','D','E'], bubbleOff: 12, bubbleDX: 8, rowY0: 80, bubbleR: 2.5,
     markerSize: 8, bar: { x: 10, y: 9, w: 158, h: 8 }, lettersY: 71
   };
+  // Disposición según nº de preguntas (n) y alternativas (k). La hoja impresa y el lector usan esta misma función.
+  function setLayout(n, k) {
+    L.N = n; L.K = k;
+    L.cols = n <= 12 ? 1 : n <= 24 ? 2 : 3;
+    L.rows = Math.ceil(n / L.cols);
+    L.rowDY = L.rows > 1 ? Math.min(14.5, 130 / (L.rows - 1)) : 14.5;
+    const pitch = 58, total = (L.cols - 1) * pitch + L.bubbleOff + (k - 1) * L.bubbleDX + L.bubbleR, left = (L.W - total) / 2;
+    L.colX = Array.from({ length: L.cols }, (_, c) => left + c * pitch);
+  }
+  setLayout(30, 4);
   const bubbleXY = (q, j) => ({ x: L.colX[Math.floor(q / L.rows)] + L.bubbleOff + j * L.bubbleDX, y: L.rowY0 + (q % L.rows) * L.rowDY });
 
   function integral(g, w, h) {
@@ -371,7 +391,7 @@ const OMR = (() => {
     const P = L.PX, d = [], flat = [];
     for (let q = 0; q < L.N; q++) {
       const row = [];
-      for (let j = 0; j < 5; j++) {
+      for (let j = 0; j < L.K; j++) {
         const { x, y } = bubbleXY(q, j);
         const inner = discMean(img, x * P, y * P, 0, 1.7 * P);
         const ring = discMean(img, x * P, y * P, 3.4 * P, 4.0 * P);
@@ -409,20 +429,21 @@ const OMR = (() => {
     return Object.assign({ ok: true, warped: wp, quad: q }, r);
   }
 
-  return { L, bubbleXY, findMarkers, scanGray, solveH, readBubbles };
+  return { L, setLayout, bubbleXY, findMarkers, scanGray, solveH, readBubbles };
 })();
 </script>
 
 <!-- ============ INTERFAZ ============ -->
 <script>
-const KEY = 'profescan.v1';
-const OPTS = OMR.L.OPTS, N = OMR.L.N;
-const DEFAULT_KEY = 'ABCDABCDEABCDEABCDEBCDABCDEACB'.split('');
-
+const KEY = 'profescan.v2';
+const SHEET_N = 30;   // la hoja impresa siempre tiene 30 filas
+let N, OPTS;          // N = preguntas evaluadas (1 a 30); OPTS = alternativas
 let S = (() => {
-  try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && s.key && s.key.length === N) return s; } catch (e) {}
-  return { key: DEFAULT_KEY.slice(), ex: 0.6, title: '', records: [], n: 0 };
+  try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && s.n >= 1 && s.n <= SHEET_N && (s.k === 4 || s.k === 5) && s.key && s.key.length === SHEET_N && Array.isArray(s.records)) return s; } catch (e) {}
+  return { n: 30, k: 4, key: Array.from({ length: SHEET_N }, (_, i) => 'ABCD'[i % 4]), ex: 0.6, title: '', records: [] };
 })();
+function applyLayout() { OMR.setLayout(SHEET_N, S.k); N = S.n; OPTS = OMR.L.OPTS.slice(0, S.k); }
+applyLayout();
 function persist() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { toast('No se pudo guardar en el dispositivo (almacenamiento lleno).'); } }
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -465,22 +486,40 @@ function beep() {
 
 /* ---------- Pauta ---------- */
 function renderKey() {
-  $('key-grid').innerHTML = S.key.map((k, i) => `
+  $('key-grid').innerHTML = S.key.slice(0, N).map((k, i) => `
     <div class="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-200 text-xs">
       <span class="font-bold text-slate-600 w-8">#${i + 1}</span>
       <div class="flex gap-1">${OPTS.map(o => `<button onclick="setKey(${i},'${o}')" class="q-btn rounded-full font-bold ${k === o ? 'bg-indigo-600 text-white' : 'bg-white border border-slate-300 text-slate-700'}">${o}</button>`).join('')}</div>
     </div>`).join('');
   $('sel-ex').value = String(S.ex);
   $('inp-title').value = S.title || '';
+  $('inp-n').value = S.n; $('sel-k').value = String(S.k); $('n-tab').textContent = S.n;
 }
 function setKey(i, o) { S.key[i] = o; persist(); renderKey(); renderAll(true); }
 function pasteKey() {
-  const v = (prompt('Pega las 30 letras de la pauta (ej: ABCDE…). Se ignoran espacios y comas:') || '').toUpperCase().replace(/[^A-E]/g, '');
+  const v = (prompt(`Pega las ${N} letras de la pauta (${OPTS.join('')}). Se ignoran espacios y comas:`) || '').toUpperCase().replace(new RegExp('[^' + OPTS.join('') + ']', 'g'), '');
   if (!v) return;
   if (v.length !== N) { toast(`La pauta debe tener ${N} letras (llegaron ${v.length}).`, 3500); return; }
-  S.key = v.split(''); persist(); renderKey(); renderAll(true); toast('Pauta actualizada.');
+  S.key = v.split('').concat(S.key.slice(N)); persist(); renderKey(); renderAll(true); toast('Pauta actualizada.');
 }
-function clearKey() { if (confirm('¿Reiniciar toda la pauta a «A»?')) { S.key = Array(N).fill('A'); persist(); renderKey(); renderAll(true); } }
+function clearKey() { if (confirm('¿Reiniciar toda la pauta a «A»?')) { S.key = Array(SHEET_N).fill('A'); persist(); renderKey(); renderAll(true); } }
+
+function changeLayout() {
+  const n = parseInt($('inp-n').value, 10), k = parseInt($('sel-k').value, 10);
+  const back = () => { $('inp-n').value = S.n; $('sel-k').value = String(S.k); };
+  if (!(n >= 1 && n <= SHEET_N)) { toast(`Las preguntas a evaluar deben estar entre 1 y ${SHEET_N}.`, 3500); back(); return; }
+  if (k !== S.k) {
+    if (S.records.length && !confirm(`Cambiar las alternativas vacía la planilla (${S.records.length} registros), porque ya no coinciden con la hoja. ¿Continuar? Si quieres conservarlos, cancela y exporta el CSV primero.`)) { back(); return; }
+    S.records = []; pending = null; $('instant-card').classList.add('hidden');
+    S.k = k; S.key = S.key.map(a => (OMR.L.OPTS.slice(0, k).includes(a) ? a : 'A'));
+    S.n = n; applyLayout(); persist(); renderKey(); renderAll();
+    toast(`Alternativas A–${OMR.L.OPTS[k - 1]}. Imprime una hoja nueva.`, 4500);
+    return;
+  }
+  if (n === S.n) return;
+  S.n = n; applyLayout(); persist(); renderKey(); renderAll();
+  toast(`Se evalúan ${n} de ${SHEET_N} preguntas. Las notas se recalcularon.`, 3500);
+}
 
 /* ---------- Planilla ---------- */
 function renderAll(skipKey) {
@@ -488,7 +527,7 @@ function renderAll(skipKey) {
   const tb = $('tbody');
   if (!S.records.length) tb.innerHTML = '<tr><td colspan="6" class="p-6 text-center text-slate-400">Aún no hay hojas registradas.</td></tr>';
   else tb.innerHTML = S.records.map((r, i) => {
-    const e = evalRec(r), flag = r.answers.some(a => a === '' || a === '*') ? ' <span title="Tiene respuestas en blanco o dobles" class="text-amber-500">⚠</span>' : '';
+    const e = evalRec(r), flag = r.answers.slice(0, N).some(a => a === '' || a === '*') ? ' <span title="Tiene respuestas en blanco o dobles" class="text-amber-500">⚠</span>' : '';
     return `<tr class="hover:bg-slate-50">
       <td class="p-2.5 font-mono">${i + 1}</td>
       <td class="p-2.5"><input value="${esc(r.name)}" onchange="renameRec(${i},this.value)" class="border border-transparent hover:border-slate-300 focus:border-indigo-400 rounded px-1 py-0.5 w-full min-w-[8rem] font-semibold text-slate-800 bg-transparent">${flag}</td>
@@ -501,7 +540,7 @@ function renderAll(skipKey) {
 }
 function renameRec(i, v) { S.records[i].name = v.trim() || `Alumno ${i + 1}`; persist(); }
 function delRec(i) { if (confirm('¿Eliminar este registro?')) { S.records.splice(i, 1); persist(); renderAll(); } }
-function clearAll() { if (S.records.length && confirm(`¿Vaciar los ${S.records.length} registros? Esta acción no se puede deshacer.`)) { S.records = []; S.n = 0; persist(); renderAll(); } }
+function clearAll() { if (S.records.length && confirm(`¿Vaciar los ${S.records.length} registros? Esta acción no se puede deshacer.`)) { S.records = []; persist(); renderAll(); } }
 function renderStats() {
   const R = S.records; $('st-total').textContent = R.length;
   if (!R.length) { ['st-avg', 'st-pass', 'st-hard'].forEach(i => $(i).textContent = '--'); return; }
@@ -509,7 +548,7 @@ function renderStats() {
   $('st-avg').textContent = (ev.reduce((a, e) => a + e.grade, 0) / R.length).toFixed(1);
   $('st-pass').textContent = Math.round(ev.filter(e => e.grade >= 4).length / R.length * 100) + '%';
   const errs = Array(N).fill(0);
-  R.forEach(r => r.answers.forEach((a, q) => { if (a !== S.key[q]) errs[q]++; }));
+  R.forEach(r => r.answers.slice(0, N).forEach((a, q) => { if (a !== S.key[q]) errs[q]++; }));
   const mx = Math.max(...errs);
   $('st-hard').textContent = mx > 0 ? `P${errs.indexOf(mx) + 1} · ${Math.round(mx / R.length * 100)}% error` : 'Ninguna';
 }
@@ -519,9 +558,9 @@ function exportCSV() {
   const head = ['N°', 'Nombre/RUT', 'Hora', 'Correctas', 'Total', 'Logro %', 'Nota', ...Array.from({ length: N }, (_, i) => 'P' + (i + 1))];
   const rows = S.records.map((r, i) => {
     const e = evalRec(r);
-    return [i + 1, q(r.name), r.time, e.score, N, e.pct, e.grade.toFixed(1).replace('.', ','), ...r.answers.map(a => a === '' ? '-' : a === '*' ? 'X' : a)];
+    return [i + 1, q(r.name), r.time, e.score, N, e.pct, e.grade.toFixed(1).replace('.', ','), ...r.answers.slice(0, N).map(a => a === '' ? '-' : a === '*' ? 'X' : a)];
   });
-  rows.push([], ['', q('Pauta'), '', '', '', '', '', ...S.key]);
+  rows.push([], ['', q('Pauta'), '', '', '', '', '', ...S.key.slice(0, N)]);
   // Separador «;» y coma decimal: Excel en configuración regional de Chile lo abre en columnas. BOM para tildes.
   const csv = '\ufeff' + [head, ...rows].map(r => r.join(';')).join('\r\n');
   const a = document.createElement('a');
@@ -540,7 +579,7 @@ function renderReview() {
   const e = evalRec(rv.rec);
   $('rv-sum').textContent = `${e.score}/${N} · ${e.pct}%`;
   $('rv-grade').textContent = e.grade.toFixed(1); $('rv-grade').className = 'font-black px-2 py-0.5 rounded ' + gradeCls(e.grade);
-  $('rv-grid').innerHTML = rv.rec.answers.map((a, i) => {
+  $('rv-grid').innerHTML = rv.rec.answers.slice(0, N).map((a, i) => {
     const btns = OPTS.map(o => {
       const sel = a === o, ok = sel && o === S.key[i];
       const cls = sel ? (ok ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white') : (o === S.key[i] ? 'bg-white border-2 border-emerald-400 text-slate-700' : 'bg-white border border-slate-300 text-slate-700');
@@ -563,6 +602,11 @@ function editRec(i) { openReview(S.records[i], 'edit', i); }
 const nextName = () => `Alumno ${S.records.length + 1}`;
 
 /* ---------- Resultado instantáneo ---------- */
+function countFlags(ans) {
+  let blanks = 0, multis = 0;
+  ans.slice(0, N).forEach(a => { if (a === '') blanks++; else if (a === '*') multis++; });
+  return { blanks, multis };
+}
 function showPending(res) {
   pending = { name: '', time: new Date().toLocaleTimeString('es-CL'), answers: res.answers, warped: res.warped };
   const e = evalRec(pending);
@@ -571,9 +615,9 @@ function showPending(res) {
   $('res-score').textContent = `${e.score} / ${N}`; $('res-pct').textContent = e.pct + '%';
   $('res-grade').textContent = e.grade.toFixed(1); $('res-grade').className = 'text-2xl font-black px-3 py-1 rounded-lg ' + gradeCls(e.grade);
   $('res-state').textContent = e.grade >= 4 ? 'Aprobado' : 'Reprobado'; $('res-state').className = 'font-semibold ' + (e.grade >= 4 ? 'text-emerald-600' : 'text-rose-600');
-  const w = $('res-warn'), notes = [];
-  if (res.blanks) notes.push(`${res.blanks} en blanco`); if (res.multis) notes.push(`${res.multis} con doble marca`);
-  if (res.blanks >= 20) notes.push('lectura dudosa: revisa que la hoja esté bien encuadrada');
+  const w = $('res-warn'), notes = [], fl = countFlags(pending.answers);
+  if (fl.blanks) notes.push(`${fl.blanks} en blanco`); if (fl.multis) notes.push(`${fl.multis} con doble marca`);
+  if (fl.blanks >= Math.ceil(N * 0.66)) notes.push('lectura dudosa: revisa que la hoja esté bien encuadrada');
   w.textContent = notes.length ? '⚠ ' + notes.join(' · ') + '. Cuentan como incorrectas; usa «Revisar» si quieres corregirlas.' : '';
   w.classList.toggle('hidden', !notes.length);
   drawPreview(res);
@@ -587,7 +631,7 @@ function drawPreview(res) {
   ctx.putImageData(im, 0, 0); ctx.lineWidth = 3;
   for (let q = 0; q < N; q++) {
     const a = res.answers[q], k = S.key[q];
-    for (let j = 0; j < 5; j++) {
+    for (let j = 0; j < S.k; j++) {
       const { x, y } = OMR.bubbleXY(q, j), o = OPTS[j];
       ctx.beginPath(); ctx.arc(x * L.PX, y * L.PX, 3.3 * L.PX, 0, 7);
       if (o === a) { ctx.strokeStyle = o === k ? '#10b981' : '#ef4444'; ctx.stroke(); }
@@ -690,7 +734,7 @@ function captureFromCamera(fromAuto) {
     if (fromAuto) {
       S.records.push({ name: nextName(), time: new Date().toLocaleTimeString('es-CL'), answers: res.answers });
       persist(); renderAll(); const e = evalRec(S.records[S.records.length - 1]);
-      toast(`✓ Alumno ${S.records.length}: ${e.score}/${N} · nota ${e.grade.toFixed(1)}${res.blanks + res.multis ? ' ⚠ revisar' : ''}`, 3000);
+      toast(`✓ Alumno ${S.records.length}: ${e.score}/${N} · nota ${e.grade.toFixed(1)}${(f => f.blanks + f.multis)(countFlags(res.answers)) ? ' ⚠ revisar' : ''}`, 3000);
     } else showPending(res);
   } finally { busy = false; }
 }
@@ -701,26 +745,27 @@ function sheetHTML() {
   const el = (x, y, w, h, st, inner = '') => `<div style="position:absolute;left:${+(O + x).toFixed(2)}mm;top:${+(O + y).toFixed(2)}mm;width:${w}mm;height:${h}mm;${st}">${inner}</div>`;
   let h = '';
   [[0, 0], [L.W, 0], [L.W, L.H], [0, L.H]].forEach(([x, y]) => { h += el(x - L.markerSize / 2, y - L.markerSize / 2, L.markerSize, L.markerSize, 'background:#000'); });
-  h += el(L.bar.x, L.bar.y, L.bar.w, L.bar.h, 'background:#000;color:#fff;font-weight:900;font-size:4.2mm;line-height:8mm;text-align:center;letter-spacing:.5mm', 'HOJA DE RESPUESTAS · 30 PREGUNTAS');
+  h += el(L.bar.x, L.bar.y, L.bar.w, L.bar.h, 'background:#000;color:#fff;font-weight:900;font-size:4.2mm;line-height:8mm;text-align:center;letter-spacing:.5mm', `HOJA DE RESPUESTAS · ${L.N} PREGUNTAS`);
   const fld = (x, y, w, t) => el(x, y, w, 7, 'border-bottom:.3mm solid #000;font-size:3mm;line-height:10mm;white-space:nowrap;overflow:hidden', t);
   h += fld(10, 22, 158, 'Nombre:');
   h += fld(10, 31, 76, 'RUT:') + fld(92, 31, 76, 'Curso:');
   h += fld(10, 40, 76, 'Evaluación: ' + esc(S.title || '')) + fld(92, 40, 76, 'Fecha:');
-  h += fld(10, 49, 76, 'Puntaje:        / 30') + fld(92, 49, 76, 'Nota:');
+  h += fld(10, 49, 76, 'Puntaje:') + fld(92, 49, 76, 'Nota:');
   h += el(10, 58, 158, 8, 'font-size:2.5mm;line-height:3.4mm;text-align:center;font-weight:bold', 'RELLENE COMPLETAMENTE EL CÍRCULO CON LÁPIZ PASTA O GRAFITO OSCURO.<br>UNA SOLA ALTERNATIVA POR PREGUNTA. NO USE CRUZ NI VISTO BUENO.');
-  for (let c = 0; c < 3; c++) for (let j = 0; j < 5; j++) {
+  for (let c = 0; c < L.cols; c++) for (let j = 0; j < S.k; j++) {
     const { x } = OMR.bubbleXY(c * L.rows, j);
     h += el(x - 2.5, L.lettersY - 2, 5, 4, 'text-align:center;font-weight:bold;font-size:3.2mm;line-height:4mm', OPTS[j]);
   }
-  for (let q = 0; q < N; q++) {
+  for (let q = 0; q < L.N; q++) {
     const x0 = L.colX[Math.floor(q / L.rows)], { y } = OMR.bubbleXY(q, 0);
     h += el(x0, y - 2, 8, 4, 'text-align:right;font-weight:bold;font-size:3.4mm;line-height:4mm', (q + 1) + '.');
-    for (let j = 0; j < 5; j++) { const b = OMR.bubbleXY(q, j); h += el(b.x - L.bubbleR, b.y - L.bubbleR, L.bubbleR * 2, L.bubbleR * 2, 'box-sizing:border-box;border:.35mm solid #000;border-radius:50%'); }
+    for (let j = 0; j < S.k; j++) { const b = OMR.bubbleXY(q, j); h += el(b.x - L.bubbleR, b.y - L.bubbleR, L.bubbleR * 2, L.bubbleR * 2, 'box-sizing:border-box;border:.35mm solid #000;border-radius:50%'); }
   }
   h += el(10, 224, 158, 4, 'text-align:center;font-size:2.4mm;color:#333', 'ProfeScan OMR · Mantenga la hoja limpia, plana y sin arrugas · No cubra los cuadrados negros');
   return `<div style="position:relative;width:190mm;height:250mm;background:#fff;color:#000;font-family:Arial,Helvetica,sans-serif;overflow:hidden">${h}</div>`;
 }
 function openPrint() {
+  $('print-title').textContent = `Hoja de respuestas (${SHEET_N} preguntas · A–${OPTS[OPTS.length - 1]})`;
   const html = sheetHTML();
   $('print-preview').innerHTML = `<div style="border:1px solid #94a3b8;box-shadow:0 2px 8px rgba(0,0,0,.2)">${html}</div>`;
   $('print-root').innerHTML = `<div style="width:190mm;margin:8mm auto 0">${html}</div>`;
