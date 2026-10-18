@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#4338ca">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>ProfeScan OMR – Lector de pruebas (30 preguntas)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  #print-root { display: none; }
+  @page { margin: 0; }
+  @media print {
+    body > *:not(#print-root) { display: none !important; }
+    #print-root { display: block !important; }
+    body { background: #fff !important; margin: 0; }
+  }
+  .q-btn { width: 1.65rem; height: 1.65rem; }
+  video, canvas { max-width: 100%; }
+</style>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans min-h-screen flex flex-col">
+
+<header class="bg-indigo-700 text-white shadow-md sticky top-0 z-40">
+  <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+    <h1 class="font-bold text-lg">ProfeScan OMR <span class="text-xs bg-indigo-500 px-2 py-0.5 rounded-full font-normal">Chile</span></h1>
+    <button onclick="openPrint()" class="bg-indigo-600 hover:bg-indigo-500 text-xs px-3 py-1.5 rounded-lg">🖨 Imprimir hoja</button>
+  </div>
+</header>
+
+<nav class="bg-white border-b border-slate-200 max-w-4xl mx-auto w-full flex sticky top-[52px] z-30">
+  <button id="btn-tab-scan" onclick="switchTab('tab-scan')" class="flex-1 py-3 font-medium border-b-2">📷 Escáner</button>
+  <button id="btn-tab-key" onclick="switchTab('tab-key')" class="flex-1 py-3 font-medium border-b-2">✅ Pauta (30)</button>
+  <button id="btn-tab-results" onclick="switchTab('tab-results')" class="flex-1 py-3 font-medium border-b-2">📊 Planilla (<span id="counter-scans">0</span>)</button>
+</nav>
+
+<main class="max-w-4xl mx-auto w-full p-4 flex-1">
+
+  <!-- ESCÁNER -->
+  <section id="tab-scan" class="space-y-4">
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+      <div class="flex justify-between items-center mb-3 gap-2">
+        <div>
+          <h2 class="text-sm font-semibold text-slate-700 uppercase tracking-wide">Cámara</h2>
+          <p class="text-xs text-slate-500">Encuadra la hoja completa: los 4 cuadrados negros deben verse.</p>
+        </div>
+        <button id="btn-cam" onclick="toggleCamera()" class="bg-slate-800 text-white text-xs px-3 py-2 rounded-lg whitespace-nowrap">Activar cámara</button>
+      </div>
+
+      <div id="cam-box" class="relative bg-black rounded-lg overflow-hidden mx-auto border-2 border-slate-300" style="width:100%;aspect-ratio:3/4;max-height:70vh">
+        <video id="video" autoplay playsinline muted class="absolute inset-0 w-full h-full hidden"></video>
+        <canvas id="overlay" class="absolute inset-0 w-full h-full pointer-events-none hidden"></canvas>
+        <div id="cam-placeholder" class="absolute inset-0 flex flex-col items-center justify-center text-slate-400 text-center p-6">
+          <div class="text-4xl mb-2">📷</div>
+          <p class="text-sm">Cámara inactiva</p>
+          <p class="text-xs text-slate-500 mt-1">Pulsa «Activar cámara» o sube fotos desde la galería.</p>
+        </div>
+        <div id="cam-status" class="absolute top-2 left-2 text-[11px] font-semibold px-2 py-1 rounded-full bg-black/60 text-white hidden">Buscando marcadores…</div>
+      </div>
+
+      <label class="mt-3 flex items-center gap-2 text-sm text-slate-700">
+        <input id="chk-auto" type="checkbox" class="w-4 h-4" onchange="setAuto(this.checked)">
+        <span><b>Captura automática</b>: guarda sola al ver los 4 marcadores estables (retira la hoja para la siguiente).</span>
+      </label>
+
+      <div class="mt-3 flex gap-2">
+        <button id="btn-capture" onclick="captureFromCamera()" disabled class="flex-1 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-300 text-white font-semibold py-3 rounded-xl">Escanear hoja</button>
+        <label class="bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-xl px-4 py-3 flex items-center cursor-pointer text-sm" title="Subir foto(s)">
+          📁 Fotos
+          <input type="file" accept="image/*" multiple class="hidden" onchange="handleUpload(event)">
+        </label>
+      </div>
+      <p class="text-[11px] text-slate-400 mt-2">Consejo: buena luz pareja, hoja plana y sin sombras sobre las esquinas. Varias fotos a la vez se leen y guardan en lote.</p>
+    </div>
+
+    <div id="instant-card" class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 hidden">
+      <div class="flex justify-between items-start border-b border-slate-100 pb-3">
+        <div>
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Resultado inmediato</span>
+          <h3 id="res-title" class="text-base font-bold">Alumno</h3>
+        </div>
+        <span id="res-grade" class="text-2xl font-black px-3 py-1 rounded-lg">--</span>
+      </div>
+      <div class="grid grid-cols-3 gap-2 text-center py-3">
+        <div class="bg-slate-50 p-2 rounded-lg"><span class="text-[10px] text-slate-500 block uppercase font-bold">Puntaje</span><span id="res-score" class="font-semibold">-</span></div>
+        <div class="bg-slate-50 p-2 rounded-lg"><span class="text-[10px] text-slate-500 block uppercase font-bold">Logro</span><span id="res-pct" class="font-semibold">-</span></div>
+        <div class="bg-slate-50 p-2 rounded-lg"><span class="text-[10px] text-slate-500 block uppercase font-bold">Estado</span><span id="res-state" class="font-semibold">-</span></div>
+      </div>
+      <p id="res-warn" class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2 mb-2 hidden"></p>
+      <canvas id="res-preview" class="w-full rounded-lg border border-slate-200 mb-2 hidden" style="max-height:340px;object-fit:contain"></canvas>
+      <div class="flex gap-2 flex-wrap">
+        <button onclick="reviewPending()" class="flex-1 min-w-[8rem] bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium py-2 rounded-lg text-sm">✏️ Revisar / corregir</button>
+        <button onclick="savePending()" class="flex-1 min-w-[8rem] bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2 rounded-lg text-sm">Guardar y siguiente</button>
+        <button onclick="discardPending()" class="bg-white border border-slate-300 text-slate-600 px-3 py-2 rounded-lg text-sm">Descartar</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- PAUTA -->
+  <section id="tab-key" class="hidden space-y-4">
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+      <div class="flex flex-wrap items-end justify-between gap-3 border-b border-slate-100 pb-3 mb-3">
+        <div class="space-y-2">
+          <div>
+            <label class="text-xs font-medium text-slate-600 block">Nombre de la evaluación (sale en la hoja)</label>
+            <input id="inp-title" type="text" maxlength="40" class="border border-slate-300 rounded px-2 py-1 text-sm w-64 max-w-full" placeholder="Ej: Matemática · Unidad 3" oninput="S.title=this.value;persist()">
+          </div>
+          <div class="flex items-center gap-2">
+            <label class="text-xs font-medium text-slate-600">Exigencia:</label>
+            <select id="sel-ex" class="border border-slate-300 rounded px-2 py-1 text-xs bg-white" onchange="S.ex=parseFloat(this.value);persist();renderAll()">
+              <option value="0.5">50%</option>
+              <option value="0.6">60% (habitual)</option>
+              <option value="0.7">70%</option>
+            </select>
+            <span class="text-[11px] text-slate-400">Nota 4.0 = exigencia; escala 1.0–7.0</span>
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="pasteKey()" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded">Pegar pauta (ABCDE…)</button>
+          <button onclick="clearKey()" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded">Reiniciar a A</button>
+        </div>
+      </div>
+      <p class="text-[11px] text-slate-500 mb-2">Si cambias la pauta, las notas de la planilla se recalculan solas.</p>
+      <div id="key-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2"></div>
+    </div>
+  </section>
+
+  <!-- PLANILLA -->
+  <section id="tab-results" class="hidden space-y-4">
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div class="bg-white p-3 rounded-xl border border-slate-200 text-center"><span class="text-xs text-slate-500 block">Evaluados</span><span id="st-total" class="text-xl font-bold">0</span></div>
+      <div class="bg-white p-3 rounded-xl border border-slate-200 text-center"><span class="text-xs text-slate-500 block">Promedio curso</span><span id="st-avg" class="text-xl font-bold text-indigo-600">--</span></div>
+      <div class="bg-white p-3 rounded-xl border border-slate-200 text-center"><span class="text-xs text-slate-500 block">% aprobación</span><span id="st-pass" class="text-xl font-bold text-emerald-600">--</span></div>
+      <div class="bg-white p-3 rounded-xl border border-slate-200 text-center"><span class="text-xs text-slate-500 block">Mayor error</span><span id="st-hard" class="text-base font-bold text-rose-600">--</span></div>
+    </div>
+    <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      <div class="p-3 bg-slate-50 border-b border-slate-200 flex flex-wrap justify-between items-center gap-2">
+        <h3 class="font-bold text-xs uppercase tracking-wider text-slate-700">Listado de evaluaciones</h3>
+        <div class="flex gap-2">
+          <button onclick="clearAll()" class="text-xs bg-white border border-slate-300 text-slate-600 px-3 py-1.5 rounded-lg">Vaciar</button>
+          <button onclick="exportCSV()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3 py-1.5 rounded-lg font-medium">⬇ Exportar CSV (Excel)</button>
+        </div>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs text-slate-600">
+          <thead class="bg-slate-100 text-slate-700 border-b border-slate-200">
+            <tr><th class="p-2.5">#</th><th class="p-2.5">Nombre / RUT</th><th class="p-2.5 text-center">Buenas</th><th class="p-2.5 text-center">Logro</th><th class="p-2.5 text-center">Nota</th><th class="p-2.5 text-center">Acción</th></tr>
+          </thead>
+          <tbody id="tbody" class="divide-y divide-slate-100"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- MODAL IMPRESIÓN -->
+<div id="modal-print" class="fixed inset-0 bg-black/60 z-50 hidden items-center justify-center p-2">
+  <div class="bg-white w-full max-w-3xl rounded-xl max-h-[92vh] flex flex-col overflow-hidden">
+    <div class="p-3 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+      <h3 class="font-bold text-sm">Hoja de respuestas (30 preguntas)</h3>
+      <div class="flex gap-2 items-center">
+        <button onclick="window.print()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-3 py-1.5 rounded-md">🖨 Imprimir</button>
+        <button onclick="closeModal('modal-print')" class="text-slate-500 text-lg px-2">✕</button>
+      </div>
+    </div>
+    <p class="text-[11px] bg-amber-50 text-amber-800 px-3 py-2 border-b border-amber-200">Imprime en <b>carta o A4 al 100 %</b> (sin «ajustar a la página»). Los marcadores y las burbujas deben mantener su tamaño real.</p>
+    <div class="p-3 overflow-auto bg-slate-200 flex-1"><div id="print-preview" style="zoom:.62;width:190mm;margin:0 auto"></div></div>
+  </div>
+</div>
+<div id="print-root"></div>
+
+<!-- MODAL REVISIÓN -->
+<div id="modal-review" class="fixed inset-0 bg-black/60 z-50 hidden items-center justify-center p-2">
+  <div class="bg-white w-full max-w-3xl rounded-xl max-h-[94vh] flex flex-col overflow-hidden">
+    <div class="p-3 border-b border-slate-200 bg-slate-50 flex flex-wrap gap-2 items-center justify-between">
+      <input id="rv-name" type="text" placeholder="Nombre / RUT del alumno" class="border border-slate-300 rounded px-2 py-1 text-sm flex-1 min-w-[10rem]" oninput="rv.rec.name=this.value">
+      <div class="text-right"><span id="rv-sum" class="text-sm font-semibold"></span> <span id="rv-grade" class="font-black px-2 py-0.5 rounded"></span></div>
+    </div>
+    <p class="text-[11px] text-slate-500 px-3 pt-2">Toca una letra para corregir lo que leyó el escáner. <b class="text-amber-600">⚠ = marcó dos o más</b>, <b class="text-slate-500">– = en blanco</b> (ambos cuentan como incorrectos).</p>
+    <div id="rv-grid" class="p-3 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 flex-1"></div>
+    <div class="p-3 border-t border-slate-200 flex gap-2 justify-end bg-slate-50">
+      <button id="rv-del" onclick="rvDelete()" class="mr-auto text-rose-600 text-sm hidden">Eliminar</button>
+      <button onclick="closeModal('modal-review')" class="text-sm px-3 py-2 rounded-lg bg-white border border-slate-300">Cancelar</button>
+      <button onclick="rvSave()" class="text-sm px-4 py-2 rounded-lg bg-indigo-600 text-white font-medium">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="fixed bottom-4 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-sm px-4 py-2 rounded-xl shadow-lg z-[60] hidden max-w-[90vw] text-center"></div>
+
+<!-- ============ NÚCLEO OMR (sin DOM; probado con imágenes sintéticas) ============ -->
+<script id="omr-core">
+const OMR = (() => {
+  // Geometría de la hoja en milímetros. Origen = centro del marcador superior izquierdo.
+  const L = {
+    PX: 4,                // px por mm en la imagen rectificada
+    W: 178, H: 238,       // distancia entre centros de marcadores (ancho, alto)
+    N: 30, OPTS: ['A','B','C','D','E'],
+    rows: 10, colX: [8, 66, 124], bubbleOff: 12, bubbleDX: 8, rowY0: 80, rowDY: 14.5, bubbleR: 2.5,
+    markerSize: 8, bar: { x: 10, y: 9, w: 158, h: 8 }, lettersY: 71
+  };
+  const bubbleXY = (q, j) => ({ x: L.colX[Math.floor(q / L.rows)] + L.bubbleOff + j * L.bubbleDX, y: L.rowY0 + (q % L.rows) * L.rowDY });
+
+  function integral(g, w, h) {
+    const W = w + 1, I = new Uint32Array(W * (h + 1));
+    for (let y = 0; y < h; y++) {
+      let row = 0;
+      for (let x = 0; x < w; x++) { row += g[y * w + x]; I[(y + 1) * W + x + 1] = I[y * W + x + 1] + row; }
+    }
+    return I;
+  }
+
+  function binarize(g, w, h) {
+    const I = integral(g, w, h), W = w + 1;
+    const r = (Math.round(Math.max(w, h) / 8) | 1) >> 1;
+    const out = new Uint8Array(w * h);
+    for (let y = 0; y < h; y++) {
+      const y0 = Math.max(0, y - r), y1 = Math.min(h, y + r + 1);
+      for (let x = 0; x < w; x++) {
+        const x0 = Math.max(0, x - r), x1 = Math.min(w, x + r + 1);
+        const s = I[y1 * W + x1] - I[y0 * W + x1] - I[y1 * W + x0] + I[y0 * W + x0];
+        const mean = s / ((x1 - x0) * (y1 - y0));
+        out[y * w + x] = g[y * w + x] < mean * 0.75 ? 1 : 0;
+      }
+    }
+    return out;
+  }
+
+  function components(mask, w, h, minS, maxS) {
+    const res = [], stack = new Int32Array(w * h), n = w * h;
+    for (let i0 = 0; i0 < n; i0++) {
+      if (mask[i0] !== 1) continue;
+      let sp = 0; stack[sp++] = i0; mask[i0] = 2;
+      let area = 0, sx = 0, sy = 0, sxx = 0, syy = 0, sxy = 0, minx = w, maxx = 0, miny = h, maxy = 0;
+      while (sp) {
+        const i = stack[--sp], x = i % w, y = (i - x) / w;
+        area++; sx += x; sy += y; sxx += x * x; syy += y * y; sxy += x * y;
+        if (x < minx) minx = x; if (x > maxx) maxx = x; if (y < miny) miny = y; if (y > maxy) maxy = y;
+        if (x > 0 && mask[i - 1] === 1) { mask[i - 1] = 2; stack[sp++] = i - 1; }
+        if (x < w - 1 && mask[i + 1] === 1) { mask[i + 1] = 2; stack[sp++] = i + 1; }
+        if (y > 0 && mask[i - w] === 1) { mask[i - w] = 2; stack[sp++] = i - w; }
+        if (y < h - 1 && mask[i + w] === 1) { mask[i + w] = 2; stack[sp++] = i + w; }
+      }
+      const bw = maxx - minx + 1, bh = maxy - miny + 1;
+      if (bw < minS || bh < minS || bw > maxS || bh > maxS) continue;
+      if (minx <= 0 || miny <= 0 || maxx >= w - 1 || maxy >= h - 1) continue;
+      if (area / (bw * bh) < 0.45) continue;
+      const cx = sx / area, cy = sy / area;
+      const a = sxx / area - cx * cx, c = syy / area - cy * cy, b = sxy / area - cx * cy;
+      const t = Math.sqrt(((a - c) / 2) ** 2 + b * b), l1 = (a + c) / 2 + t, l2 = (a + c) / 2 - t;
+      if (l1 <= 0 || Math.sqrt(Math.max(l2, 0) / l1) < 0.6) continue;
+      res.push({ x: cx, y: cy, area });
+    }
+    return res;
+  }
+
+  const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+  function orderQuad(p) {
+    let tl = 0, br = 0, tr = 0, bl = 0;
+    for (let i = 1; i < 4; i++) {
+      if (p[i].x + p[i].y < p[tl].x + p[tl].y) tl = i;
+      if (p[i].x + p[i].y > p[br].x + p[br].y) br = i;
+      if (p[i].x - p[i].y > p[tr].x - p[tr].y) tr = i;
+      if (p[i].x - p[i].y < p[bl].x - p[bl].y) bl = i;
+    }
+    if (new Set([tl, tr, br, bl]).size !== 4) return null;
+    return [p[tl], p[tr], p[br], p[bl]];
+  }
+  function quadAspect(q) { return ((dist(q[0], q[1]) + dist(q[3], q[2])) / 2) / ((dist(q[0], q[3]) + dist(q[1], q[2])) / 2); }
+  function quadScore(q) {
+    const top = dist(q[0], q[1]), bot = dist(q[3], q[2]), lef = dist(q[0], q[3]), rig = dist(q[1], q[2]);
+    if (Math.min(top, bot) / Math.max(top, bot) < 0.6 || Math.min(lef, rig) / Math.max(lef, rig) < 0.6) return 0;
+    const asp = quadAspect(q), t = L.W / L.H;
+    const dev = Math.min(Math.abs(asp / t - 1), Math.abs(asp * t - 1));
+    if (dev > 0.25) return 0;
+    let sgn = 0;
+    for (let i = 0; i < 4; i++) {
+      const a = q[i], b = q[(i + 1) % 4], c = q[(i + 2) % 4];
+      const cr = (b.x - a.x) * (c.y - b.y) - (b.y - a.y) * (c.x - b.x);
+      if (cr === 0) return 0;
+      if (sgn === 0) sgn = Math.sign(cr); else if (Math.sign(cr) !== sgn) return 0;
+    }
+    let pa = 0;
+    for (let i = 0; i < 4; i++) { const a = q[i], b = q[(i + 1) % 4]; pa += a.x * b.y - b.x * a.y; }
+    pa = Math.abs(pa) / 2;
+    const areas = q.map(p => p.area), sizeR = Math.min(...areas) / Math.max(...areas);
+    if (sizeR < 0.3) return 0;
+    return pa * sizeR * (1 - dev);
+  }
+
+  function findMarkers(g, w, h) {
+    const lim = Math.max(w, h);
+    const c = components(binarize(g, w, h), w, h, Math.max(5, lim * 0.008), lim * 0.15)
+      .sort((a, b) => b.area - a.area).slice(0, 14);
+    let best = null, bs = 0;
+    for (let i = 0; i < c.length; i++) for (let j = i + 1; j < c.length; j++)
+      for (let k = j + 1; k < c.length; k++) for (let l = k + 1; l < c.length; l++) {
+        const q = orderQuad([c[i], c[j], c[k], c[l]]);
+        if (!q) continue;
+        const s = quadScore(q);
+        if (s > bs) { bs = s; best = q; }
+      }
+    return best ? { quad: best.map(p => ({ x: p.x, y: p.y, area: p.area })), score: bs } : null;
+  }
+
+  // Homografía: 4 pares src->dst
+  function solveH(src, dst) {
+    const A = [];
+    for (let i = 0; i < 4; i++) {
+      const { x, y } = src[i], { x: u, y: v } = dst[i];
+      A.push([x, y, 1, 0, 0, 0, -u * x, -u * y, u]);
+      A.push([0, 0, 0, x, y, 1, -v * x, -v * y, v]);
+    }
+    for (let c = 0; c < 8; c++) {
+      let p = c;
+      for (let r = c + 1; r < 8; r++) if (Math.abs(A[r][c]) > Math.abs(A[p][c])) p = r;
+      [A[c], A[p]] = [A[p], A[c]];
+      for (let r = 0; r < 8; r++) {
+        if (r === c) continue;
+        const f = A[r][c] / A[c][c];
+        for (let k = c; k < 9; k++) A[r][k] -= f * A[c][k];
+      }
+    }
+    return A.map((row, i) => row[8] / row[i]);
+  }
+
+  function canonCorners() {
+    const W = L.W * L.PX, H = L.H * L.PX;
+    return [{ x: 0, y: 0 }, { x: W, y: 0 }, { x: W, y: H }, { x: 0, y: H }];
+  }
+
+  function warp(g, w, h, Hm) {
+    const Wc = L.W * L.PX, Hc = L.H * L.PX, out = new Uint8Array(Wc * Hc);
+    for (let v = 0; v < Hc; v++) for (let u = 0; u < Wc; u++) {
+      const den = Hm[6] * u + Hm[7] * v + 1;
+      const x = (Hm[0] * u + Hm[1] * v + Hm[2]) / den, y = (Hm[3] * u + Hm[4] * v + Hm[5]) / den;
+      const x0 = Math.floor(x), y0 = Math.floor(y);
+      if (x0 < 0 || y0 < 0 || x0 >= w - 1 || y0 >= h - 1) { out[v * Wc + u] = 255; continue; }
+      const fx = x - x0, fy = y - y0, i = y0 * w + x0;
+      out[v * Wc + u] = g[i] * (1 - fx) * (1 - fy) + g[i + 1] * fx * (1 - fy) + g[i + w] * (1 - fx) * fy + g[i + w + 1] * fx * fy;
+    }
+    return out;
+  }
+
+  function band(img, y0mm, y1mm, paper) {
+    const Wc = L.W * L.PX, ya = Math.round(y0mm * L.PX), yb = Math.round(y1mm * L.PX);
+    const xa = 10 * L.PX, xb = 168 * L.PX; let ink = 0, n = 0;
+    for (let y = ya; y < yb; y += 2) for (let x = xa; x < xb; x += 2) { n++; if (img[y * Wc + x] < paper * 0.6) ink++; }
+    return ink / n;
+  }
+  function paperLevel(img) {
+    const s = []; for (let i = 0; i < img.length; i += 13) s.push(img[i]);
+    s.sort((a, b) => a - b); return s[Math.floor(s.length * 0.9)] || 255;
+  }
+
+  function discMean(img, cx, cy, r0, r1) {
+    const Wc = L.W * L.PX, Hc = L.H * L.PX;
+    let sum = 0, n = 0;
+    for (let y = Math.floor(cy - r1); y <= Math.ceil(cy + r1); y++) for (let x = Math.floor(cx - r1); x <= Math.ceil(cx + r1); x++) {
+      if (x < 0 || y < 0 || x >= Wc || y >= Hc) continue;
+      const d2 = (x - cx) ** 2 + (y - cy) ** 2;
+      if (d2 >= r0 * r0 && d2 <= r1 * r1) { sum += img[y * Wc + x]; n++; }
+    }
+    return n ? sum / n : 255;
+  }
+
+  function readBubbles(img) {
+    const P = L.PX, d = [], flat = [];
+    for (let q = 0; q < L.N; q++) {
+      const row = [];
+      for (let j = 0; j < 5; j++) {
+        const { x, y } = bubbleXY(q, j);
+        const inner = discMean(img, x * P, y * P, 0, 1.7 * P);
+        const ring = discMean(img, x * P, y * P, 3.4 * P, 4.0 * P);
+        const v = Math.min(1, Math.max(0, 1 - inner / Math.max(ring, 1)));
+        row.push(v); flat.push(v);
+      }
+      d.push(row);
+    }
+    const sorted = flat.slice().sort((a, b) => a - b);
+    const base = sorted[Math.floor(sorted.length / 2)], p95 = sorted[Math.floor(sorted.length * 0.95)];
+    const T = base + Math.max(0.10, 0.4 * (p95 - base));
+    const answers = []; let blanks = 0, multis = 0;
+    for (let q = 0; q < L.N; q++) {
+      const marked = d[q].map((v, j) => ({ v, j })).filter(o => o.v > T).sort((a, b) => b.v - a.v);
+      if (marked.length === 0) { answers.push(''); blanks++; }
+      else if (marked.length === 1 || marked[0].v >= 2 * marked[1].v) answers.push(L.OPTS[marked[0].j]);
+      else { answers.push('*'); multis++; }
+    }
+    return { answers, d, threshold: T, blanks, multis };
+  }
+
+  const rot = (q, k) => q.map((_, i) => q[(i + k) % 4]);
+  function homog(canonQuad) { return solveH(canonCorners(), canonQuad); }
+
+  function scanGray(g, w, h) {
+    const m = findMarkers(g, w, h);
+    if (!m) return { ok: false, reason: 'No se ven los 4 marcadores negros de las esquinas. Encuadra la hoja completa, con buena luz y sin sombras.' };
+    const q = m.quad, k0 = quadAspect(q) < 1 ? 0 : 1;
+    let canon = rot(q, k0), wp = warp(g, w, h, homog(canon));
+    let paper = paperLevel(wp);
+    if (band(wp, 220, 235, paper) > band(wp, 6, 20, paper)) {
+      canon = rot(q, (k0 + 2) % 4); wp = warp(g, w, h, homog(canon)); paper = paperLevel(wp);
+    }
+    const r = readBubbles(wp);
+    return Object.assign({ ok: true, warped: wp, quad: q }, r);
+  }
+
+  return { L, bubbleXY, findMarkers, scanGray, solveH, readBubbles };
+})();
+</script>
+
+<!-- ============ INTERFAZ ============ -->
+<script>
+const KEY = 'profescan.v1';
+const OPTS = OMR.L.OPTS, N = OMR.L.N;
+const DEFAULT_KEY = 'ABCDABCDEABCDEABCDEBCDABCDEACB'.split('');
+
+let S = (() => {
+  try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && s.key && s.key.length === N) return s; } catch (e) {}
+  return { key: DEFAULT_KEY.slice(), ex: 0.6, title: '', records: [], n: 0 };
+})();
+function persist() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { toast('No se pudo guardar en el dispositivo (almacenamiento lleno).'); } }
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+let pending = null;      // lectura aún no guardada
+let rv = null;           // estado del modal de revisión
+let stream = null, liveTimer = null, stableCount = 0, armed = true, auto = false, busy = false;
+
+/* ---------- Notas ---------- */
+function gradeCL(score, max, ex) {
+  const cut = max * ex;
+  const g = score < cut ? 1 + 3 * score / cut : 4 + 3 * (score - cut) / (max - cut);
+  return Math.round(g * 10 + 1e-9) / 10;
+}
+function evalRec(rec) {
+  let score = 0;
+  for (let i = 0; i < N; i++) if (rec.answers[i] === S.key[i]) score++;
+  return { score, pct: Math.round(score / N * 100), grade: gradeCL(score, N, S.ex) };
+}
+const gradeCls = g => g >= 4 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700';
+
+/* ---------- UI general ---------- */
+function toast(msg, ms = 2500) {
+  const t = $('toast'); t.textContent = msg; t.classList.remove('hidden');
+  clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.add('hidden'), ms);
+}
+function switchTab(id) {
+  ['tab-scan', 'tab-key', 'tab-results'].forEach(t => {
+    $(t).classList.toggle('hidden', t !== id);
+    $('btn-' + t).className = 'flex-1 py-3 font-medium border-b-2 ' + (t === id ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500');
+  });
+}
+function openModal(id) { $(id).classList.remove('hidden'); $(id).classList.add('flex'); }
+function closeModal(id) { $(id).classList.add('hidden'); $(id).classList.remove('flex'); }
+function beep() {
+  try { const a = new (window.AudioContext || window.webkitAudioContext)(), o = a.createOscillator(), g = a.createGain();
+    o.connect(g); g.connect(a.destination); o.frequency.value = 880; g.gain.value = 0.1; o.start(); o.stop(a.currentTime + 0.12); } catch (e) {}
+  if (navigator.vibrate) navigator.vibrate(60);
+}
+
+/* ---------- Pauta ---------- */
+function renderKey() {
+  $('key-grid').innerHTML = S.key.map((k, i) => `
+    <div class="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-200 text-xs">
+      <span class="font-bold text-slate-600 w-8">#${i + 1}</span>
+      <div class="flex gap-1">${OPTS.map(o => `<button onclick="setKey(${i},'${o}')" class="q-btn rounded-full font-bold ${k === o ? 'bg-indigo-600 text-white' : 'bg-white border border-slate-300 text-slate-700'}">${o}</button>`).join('')}</div>
+    </div>`).join('');
+  $('sel-ex').value = String(S.ex);
+  $('inp-title').value = S.title || '';
+}
+function setKey(i, o) { S.key[i] = o; persist(); renderKey(); renderAll(true); }
+function pasteKey() {
+  const v = (prompt('Pega las 30 letras de la pauta (ej: ABCDE…). Se ignoran espacios y comas:') || '').toUpperCase().replace(/[^A-E]/g, '');
+  if (!v) return;
+  if (v.length !== N) { toast(`La pauta debe tener ${N} letras (llegaron ${v.length}).`, 3500); return; }
+  S.key = v.split(''); persist(); renderKey(); renderAll(true); toast('Pauta actualizada.');
+}
+function clearKey() { if (confirm('¿Reiniciar toda la pauta a «A»?')) { S.key = Array(N).fill('A'); persist(); renderKey(); renderAll(true); } }
+
+/* ---------- Planilla ---------- */
+function renderAll(skipKey) {
+  $('counter-scans').textContent = S.records.length;
+  const tb = $('tbody');
+  if (!S.records.length) tb.innerHTML = '<tr><td colspan="6" class="p-6 text-center text-slate-400">Aún no hay hojas registradas.</td></tr>';
+  else tb.innerHTML = S.records.map((r, i) => {
+    const e = evalRec(r), flag = r.answers.some(a => a === '' || a === '*') ? ' <span title="Tiene respuestas en blanco o dobles" class="text-amber-500">⚠</span>' : '';
+    return `<tr class="hover:bg-slate-50">
+      <td class="p-2.5 font-mono">${i + 1}</td>
+      <td class="p-2.5"><input value="${esc(r.name)}" onchange="renameRec(${i},this.value)" class="border border-transparent hover:border-slate-300 focus:border-indigo-400 rounded px-1 py-0.5 w-full min-w-[8rem] font-semibold text-slate-800 bg-transparent">${flag}</td>
+      <td class="p-2.5 text-center">${e.score}/${N}</td>
+      <td class="p-2.5 text-center">${e.pct}%</td>
+      <td class="p-2.5 text-center"><span class="font-bold px-2 py-0.5 rounded ${gradeCls(e.grade)}">${e.grade.toFixed(1)}</span></td>
+      <td class="p-2.5 text-center whitespace-nowrap"><button onclick="editRec(${i})" class="p-1" title="Revisar">✏️</button><button onclick="delRec(${i})" class="p-1 text-rose-500" title="Eliminar">🗑</button></td>
+    </tr>`; }).join('');
+  renderStats();
+}
+function renameRec(i, v) { S.records[i].name = v.trim() || `Alumno ${i + 1}`; persist(); }
+function delRec(i) { if (confirm('¿Eliminar este registro?')) { S.records.splice(i, 1); persist(); renderAll(); } }
+function clearAll() { if (S.records.length && confirm(`¿Vaciar los ${S.records.length} registros? Esta acción no se puede deshacer.`)) { S.records = []; S.n = 0; persist(); renderAll(); } }
+function renderStats() {
+  const R = S.records; $('st-total').textContent = R.length;
+  if (!R.length) { ['st-avg', 'st-pass', 'st-hard'].forEach(i => $(i).textContent = '--'); return; }
+  const ev = R.map(evalRec);
+  $('st-avg').textContent = (ev.reduce((a, e) => a + e.grade, 0) / R.length).toFixed(1);
+  $('st-pass').textContent = Math.round(ev.filter(e => e.grade >= 4).length / R.length * 100) + '%';
+  const errs = Array(N).fill(0);
+  R.forEach(r => r.answers.forEach((a, q) => { if (a !== S.key[q]) errs[q]++; }));
+  const mx = Math.max(...errs);
+  $('st-hard').textContent = mx > 0 ? `P${errs.indexOf(mx) + 1} · ${Math.round(mx / R.length * 100)}% error` : 'Ninguna';
+}
+function exportCSV() {
+  if (!S.records.length) { toast('No hay registros para exportar.'); return; }
+  const q = v => '"' + String(v).replace(/"/g, '""') + '"';
+  const head = ['N°', 'Nombre/RUT', 'Hora', 'Correctas', 'Total', 'Logro %', 'Nota', ...Array.from({ length: N }, (_, i) => 'P' + (i + 1))];
+  const rows = S.records.map((r, i) => {
+    const e = evalRec(r);
+    return [i + 1, q(r.name), r.time, e.score, N, e.pct, e.grade.toFixed(1).replace('.', ','), ...r.answers.map(a => a === '' ? '-' : a === '*' ? 'X' : a)];
+  });
+  rows.push([], ['', q('Pauta'), '', '', '', '', '', ...S.key]);
+  // Separador «;» y coma decimal: Excel en configuración regional de Chile lo abre en columnas. BOM para tildes.
+  const csv = '\ufeff' + [head, ...rows].map(r => r.join(';')).join('\r\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  a.download = `notas_${(S.title || 'evaluacion').replace(/[^\w\-áéíóúñ]+/gi, '_')}_${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+}
+
+/* ---------- Revisión manual ---------- */
+function openReview(rec, mode, idx) {
+  rv = { rec: { name: rec.name, time: rec.time, answers: rec.answers.slice() }, mode, idx };
+  $('rv-name').value = rv.rec.name; $('rv-del').classList.toggle('hidden', mode !== 'edit');
+  renderReview(); openModal('modal-review');
+}
+function renderReview() {
+  const e = evalRec(rv.rec);
+  $('rv-sum').textContent = `${e.score}/${N} · ${e.pct}%`;
+  $('rv-grade').textContent = e.grade.toFixed(1); $('rv-grade').className = 'font-black px-2 py-0.5 rounded ' + gradeCls(e.grade);
+  $('rv-grid').innerHTML = rv.rec.answers.map((a, i) => {
+    const btns = OPTS.map(o => {
+      const sel = a === o, ok = sel && o === S.key[i];
+      const cls = sel ? (ok ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white') : (o === S.key[i] ? 'bg-white border-2 border-emerald-400 text-slate-700' : 'bg-white border border-slate-300 text-slate-700');
+      return `<button onclick="rvSet(${i},'${o}')" class="q-btn rounded-full font-bold text-xs ${cls}">${o}</button>`;
+    }).join('');
+    const blank = `<button onclick="rvSet(${i},'')" class="q-btn rounded-full text-xs ${a === '' ? 'bg-slate-500 text-white' : 'bg-white border border-slate-300 text-slate-400'}">–</button>`;
+    const warn = a === '*' ? '<span class="text-amber-500 font-bold" title="Marcó dos o más">⚠</span>' : '';
+    return `<div class="flex items-center justify-between p-1.5 rounded-lg border text-xs ${a === '*' ? 'bg-amber-50 border-amber-300' : a === '' ? 'bg-slate-50 border-slate-300' : 'bg-white border-slate-200'}"><span class="font-bold w-8">#${i + 1}${warn}</span><div class="flex gap-1">${btns}${blank}</div></div>`;
+  }).join('');
+}
+function rvSet(i, v) { rv.rec.answers[i] = v; renderReview(); }
+function rvSave() {
+  const name = rv.rec.name.trim();
+  if (rv.mode === 'new') { rv.rec.name = name || nextName(); S.records.push(rv.rec); pending = null; $('instant-card').classList.add('hidden'); }
+  else { rv.rec.name = name || S.records[rv.idx].name; S.records[rv.idx] = rv.rec; }
+  persist(); renderAll(); closeModal('modal-review'); toast('Guardado.');
+}
+function rvDelete() { delRec(rv.idx); closeModal('modal-review'); }
+function editRec(i) { openReview(S.records[i], 'edit', i); }
+const nextName = () => `Alumno ${S.records.length + 1}`;
+
+/* ---------- Resultado instantáneo ---------- */
+function showPending(res) {
+  pending = { name: '', time: new Date().toLocaleTimeString('es-CL'), answers: res.answers, warped: res.warped };
+  const e = evalRec(pending);
+  $('instant-card').classList.remove('hidden');
+  $('res-title').textContent = nextName();
+  $('res-score').textContent = `${e.score} / ${N}`; $('res-pct').textContent = e.pct + '%';
+  $('res-grade').textContent = e.grade.toFixed(1); $('res-grade').className = 'text-2xl font-black px-3 py-1 rounded-lg ' + gradeCls(e.grade);
+  $('res-state').textContent = e.grade >= 4 ? 'Aprobado' : 'Reprobado'; $('res-state').className = 'font-semibold ' + (e.grade >= 4 ? 'text-emerald-600' : 'text-rose-600');
+  const w = $('res-warn'), notes = [];
+  if (res.blanks) notes.push(`${res.blanks} en blanco`); if (res.multis) notes.push(`${res.multis} con doble marca`);
+  if (res.blanks >= 20) notes.push('lectura dudosa: revisa que la hoja esté bien encuadrada');
+  w.textContent = notes.length ? '⚠ ' + notes.join(' · ') + '. Cuentan como incorrectas; usa «Revisar» si quieres corregirlas.' : '';
+  w.classList.toggle('hidden', !notes.length);
+  drawPreview(res);
+  $('instant-card').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+function drawPreview(res) {
+  const L = OMR.L, c = $('res-preview'), W = L.W * L.PX, H = L.H * L.PX;
+  c.width = W; c.height = H; c.classList.remove('hidden');
+  const ctx = c.getContext('2d'), im = ctx.createImageData(W, H);
+  for (let i = 0; i < W * H; i++) { const v = res.warped[i]; im.data[4 * i] = im.data[4 * i + 1] = im.data[4 * i + 2] = v; im.data[4 * i + 3] = 255; }
+  ctx.putImageData(im, 0, 0); ctx.lineWidth = 3;
+  for (let q = 0; q < N; q++) {
+    const a = res.answers[q], k = S.key[q];
+    for (let j = 0; j < 5; j++) {
+      const { x, y } = OMR.bubbleXY(q, j), o = OPTS[j];
+      ctx.beginPath(); ctx.arc(x * L.PX, y * L.PX, 3.3 * L.PX, 0, 7);
+      if (o === a) { ctx.strokeStyle = o === k ? '#10b981' : '#ef4444'; ctx.stroke(); }
+      else if (o === k && a !== k) { ctx.strokeStyle = '#10b981'; ctx.setLineDash([6, 6]); ctx.stroke(); ctx.setLineDash([]); }
+    }
+  }
+}
+function reviewPending() { if (pending) openReview(pending, 'new'); }
+function savePending() {
+  if (!pending) return;
+  S.records.push({ name: nextName(), time: pending.time, answers: pending.answers });
+  pending = null; $('instant-card').classList.add('hidden'); persist(); renderAll(); toast('Guardado. Listo para el siguiente alumno.');
+}
+function discardPending() { pending = null; $('instant-card').classList.add('hidden'); }
+
+/* ---------- Lectura de imagen ---------- */
+function toGray(canvas) {
+  const w = canvas.width, h = canvas.height, d = canvas.getContext('2d').getImageData(0, 0, w, h).data, g = new Uint8Array(w * h);
+  for (let i = 0, p = 0; i < g.length; i++, p += 4) g[i] = (d[p] * 77 + d[p + 1] * 150 + d[p + 2] * 29) >> 8;
+  return g;
+}
+function drawScaled(src, sw, sh, maxSide) {
+  const s = Math.min(1, maxSide / Math.max(sw, sh)), c = document.createElement('canvas');
+  c.width = Math.round(sw * s); c.height = Math.round(sh * s);
+  c.getContext('2d', { willReadFrequently: true }).drawImage(src, 0, 0, c.width, c.height); return c;
+}
+function scanCanvas(c) { return OMR.scanGray(toGray(c), c.width, c.height); }
+
+async function handleUpload(ev) {
+  const files = [...ev.target.files]; ev.target.value = '';
+  if (!files.length) return;
+  let saved = 0, failed = [];
+  for (const f of files) {
+    try {
+      const bmp = await createImageBitmap(f);
+      const res = scanCanvas(drawScaled(bmp, bmp.width, bmp.height, 1600));
+      if (!res.ok) { failed.push(f.name); continue; }
+      if (files.length === 1) { beep(); showPending(res); return; }
+      S.records.push({ name: f.name.replace(/\.[^.]+$/, '') || nextName(), time: new Date().toLocaleTimeString('es-CL'), answers: res.answers }); saved++;
+    } catch (e) { failed.push(f.name); }
+    toast(`Procesando… ${saved + failed.length}/${files.length}`, 1500);
+    await new Promise(r => setTimeout(r, 0));
+  }
+  if (files.length === 1 && failed.length) { toast('No se detectaron los 4 marcadores en la foto.', 4000); return; }
+  persist(); renderAll();
+  toast(`${saved} hoja(s) guardadas${failed.length ? ` · ${failed.length} no legibles: ${failed.slice(0, 3).join(', ')}${failed.length > 3 ? '…' : ''}` : ''}.`, 5000);
+  if (saved) switchTab('tab-results');
+}
+
+/* ---------- Cámara ---------- */
+async function toggleCamera() {
+  if (stream) return stopCamera();
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { toast('Este navegador/entorno no permite cámara (se requiere HTTPS).', 4000); return; }
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false });
+  } catch (e) { toast('No se pudo acceder a la cámara. Revisa los permisos del navegador.', 4000); return; }
+  const v = $('video'); v.srcObject = stream; await v.play().catch(() => {});
+  const setAspect = () => { if (v.videoWidth) { const box = $('cam-box'), r = v.videoWidth / v.videoHeight; box.style.aspectRatio = r; box.style.width = `min(100%, ${(70 * r).toFixed(1)}vh)`; } };
+  v.onloadedmetadata = setAspect; setAspect();
+  v.classList.remove('hidden'); $('overlay').classList.remove('hidden'); $('cam-placeholder').classList.add('hidden'); $('cam-status').classList.remove('hidden');
+  $('btn-cam').textContent = 'Detener cámara'; $('btn-capture').disabled = false;
+  stableCount = 0; armed = true; liveTimer = setInterval(liveTick, 300);
+}
+function stopCamera() {
+  clearInterval(liveTimer); liveTimer = null;
+  if (stream) stream.getTracks().forEach(t => t.stop()); stream = null;
+  const v = $('video'); v.srcObject = null; v.classList.add('hidden'); $('overlay').classList.add('hidden');
+  $('cam-placeholder').classList.remove('hidden'); $('cam-status').classList.add('hidden');
+  $('btn-cam').textContent = 'Activar cámara'; $('btn-capture').disabled = true;
+}
+function setAuto(on) { auto = on; stableCount = 0; if (on && !stream) toast('Activa la cámara para usar la captura automática.'); }
+
+function liveTick() {
+  const v = $('video'); if (busy || !v.videoWidth) return;
+  const c = drawScaled(v, v.videoWidth, v.videoHeight, 480), ov = $('overlay');
+  const m = OMR.findMarkers(toGray(c), c.width, c.height);
+  ov.width = c.width; ov.height = c.height;
+  const ctx = ov.getContext('2d'), st = $('cam-status');
+  if (m) {
+    ctx.strokeStyle = '#34d399'; ctx.lineWidth = 3; ctx.beginPath();
+    m.quad.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)); ctx.closePath(); ctx.stroke();
+    m.quad.forEach(p => { ctx.fillStyle = '#34d399'; ctx.fillRect(p.x - 4, p.y - 4, 8, 8); });
+    stableCount++; st.textContent = '✓ 4 marcadores detectados'; st.className = 'absolute top-2 left-2 text-[11px] font-semibold px-2 py-1 rounded-full bg-emerald-600 text-white';
+    if (auto && armed && stableCount >= 3) { armed = false; captureFromCamera(true); }
+  } else {
+    stableCount = 0; st.textContent = auto ? 'Esperando hoja…' : 'Buscando marcadores…'; st.className = 'absolute top-2 left-2 text-[11px] font-semibold px-2 py-1 rounded-full bg-black/60 text-white';
+    if (!armed && ++liveTick.miss >= 3) { armed = true; liveTick.miss = 0; }
+  }
+  if (m) liveTick.miss = 0;
+}
+liveTick.miss = 0;
+
+function captureFromCamera(fromAuto) {
+  const v = $('video'); if (!v.videoWidth || busy) return;
+  busy = true;
+  try {
+    const res = scanCanvas(drawScaled(v, v.videoWidth, v.videoHeight, 1600));
+    if (!res.ok) { toast(res.reason, 4000); return; }
+    beep();
+    if (fromAuto) {
+      S.records.push({ name: nextName(), time: new Date().toLocaleTimeString('es-CL'), answers: res.answers });
+      persist(); renderAll(); const e = evalRec(S.records[S.records.length - 1]);
+      toast(`✓ Alumno ${S.records.length}: ${e.score}/${N} · nota ${e.grade.toFixed(1)}${res.blanks + res.multis ? ' ⚠ revisar' : ''}`, 3000);
+    } else showPending(res);
+  } finally { busy = false; }
+}
+
+/* ---------- Hoja imprimible (misma geometría que el lector) ---------- */
+function sheetHTML() {
+  const L = OMR.L, O = 6;
+  const el = (x, y, w, h, st, inner = '') => `<div style="position:absolute;left:${+(O + x).toFixed(2)}mm;top:${+(O + y).toFixed(2)}mm;width:${w}mm;height:${h}mm;${st}">${inner}</div>`;
+  let h = '';
+  [[0, 0], [L.W, 0], [L.W, L.H], [0, L.H]].forEach(([x, y]) => { h += el(x - L.markerSize / 2, y - L.markerSize / 2, L.markerSize, L.markerSize, 'background:#000'); });
+  h += el(L.bar.x, L.bar.y, L.bar.w, L.bar.h, 'background:#000;color:#fff;font-weight:900;font-size:4.2mm;line-height:8mm;text-align:center;letter-spacing:.5mm', 'HOJA DE RESPUESTAS · 30 PREGUNTAS');
+  const fld = (x, y, w, t) => el(x, y, w, 7, 'border-bottom:.3mm solid #000;font-size:3mm;line-height:10mm;white-space:nowrap;overflow:hidden', t);
+  h += fld(10, 22, 158, 'Nombre:');
+  h += fld(10, 31, 76, 'RUT:') + fld(92, 31, 76, 'Curso:');
+  h += fld(10, 40, 76, 'Evaluación: ' + esc(S.title || '')) + fld(92, 40, 76, 'Fecha:');
+  h += fld(10, 49, 76, 'Puntaje:        / 30') + fld(92, 49, 76, 'Nota:');
+  h += el(10, 58, 158, 8, 'font-size:2.5mm;line-height:3.4mm;text-align:center;font-weight:bold', 'RELLENE COMPLETAMENTE EL CÍRCULO CON LÁPIZ PASTA O GRAFITO OSCURO.<br>UNA SOLA ALTERNATIVA POR PREGUNTA. NO USE CRUZ NI VISTO BUENO.');
+  for (let c = 0; c < 3; c++) for (let j = 0; j < 5; j++) {
+    const { x } = OMR.bubbleXY(c * L.rows, j);
+    h += el(x - 2.5, L.lettersY - 2, 5, 4, 'text-align:center;font-weight:bold;font-size:3.2mm;line-height:4mm', OPTS[j]);
+  }
+  for (let q = 0; q < N; q++) {
+    const x0 = L.colX[Math.floor(q / L.rows)], { y } = OMR.bubbleXY(q, 0);
+    h += el(x0, y - 2, 8, 4, 'text-align:right;font-weight:bold;font-size:3.4mm;line-height:4mm', (q + 1) + '.');
+    for (let j = 0; j < 5; j++) { const b = OMR.bubbleXY(q, j); h += el(b.x - L.bubbleR, b.y - L.bubbleR, L.bubbleR * 2, L.bubbleR * 2, 'box-sizing:border-box;border:.35mm solid #000;border-radius:50%'); }
+  }
+  h += el(10, 224, 158, 4, 'text-align:center;font-size:2.4mm;color:#333', 'ProfeScan OMR · Mantenga la hoja limpia, plana y sin arrugas · No cubra los cuadrados negros');
+  return `<div style="position:relative;width:190mm;height:250mm;background:#fff;color:#000;font-family:Arial,Helvetica,sans-serif;overflow:hidden">${h}</div>`;
+}
+function openPrint() {
+  const html = sheetHTML();
+  $('print-preview').innerHTML = `<div style="border:1px solid #94a3b8;box-shadow:0 2px 8px rgba(0,0,0,.2)">${html}</div>`;
+  $('print-root').innerHTML = `<div style="width:190mm;margin:8mm auto 0">${html}</div>`;
+  openModal('modal-print');
+}
+
+/* ---------- Inicio + PWA ---------- */
+window.addEventListener('DOMContentLoaded', () => {
+  renderKey(); renderAll(); switchTab('tab-scan');
+  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
+});
+</script>
+</body>
+</html>
