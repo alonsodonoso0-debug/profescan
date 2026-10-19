@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
-<meta name="theme-color" content="#4338ca" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#1e1b4b" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#0074FF" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0a3a80" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.json">
@@ -15,6 +15,13 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
+<script>
+  // Paleta de la app: azul #0074FF (500). Se reemplaza la escala «indigo» para que todos los botones, pestañas y resaltes usen la marca.
+  tailwind.config = { theme: { extend: { colors: { indigo: {
+    50: '#EBF4FF', 100: '#D6E8FF', 200: '#B3D6FF', 300: '#85BCFF', 400: '#4D9CFF',
+    500: '#0074FF', 600: '#0062D6', 700: '#0050B0', 800: '#003D87', 900: '#002B61'
+  } } } } };
+</script>
 <style>
   #print-root { display: none; }
   @page { margin: 0; }
@@ -26,6 +33,7 @@
   }
   .q-btn { width: 1.65rem; height: 1.65rem; }
   video, canvas { max-width: 100%; }
+  body.bg-slate-100 { background-color: #F1F6FD; }
   /* ---- Modo oscuro automático (sigue la configuración del dispositivo; no afecta la impresión) ---- */
   @media screen and (prefers-color-scheme: dark) {
     :root { color-scheme: dark; }
@@ -39,8 +47,8 @@
     body .bg-slate-200 { background-color: #334155; }
     body .bg-slate-800 { background-color: #3b4a63; }
     body .bg-slate-900 { background-color: #475569; }
-    body .bg-indigo-50 { background-color: rgba(99,102,241,.16); }
-    body .bg-indigo-700 { background-color: #312e81; }
+    body .bg-indigo-50 { background-color: rgba(0,116,255,.16); }
+    body header.bg-indigo-500 { background-color: #0a3a80; background-image: linear-gradient(135deg,#0d4aa3 0%,#0a3a80 100%) !important; }
     body .bg-amber-50 { background-color: rgba(245,158,11,.12); }
     body .bg-amber-100 { background-color: rgba(245,158,11,.22); }
     body .bg-emerald-100 { background-color: rgba(16,185,129,.2); }
@@ -58,8 +66,8 @@
     body .text-slate-700 { color: #e2e8f0; }
     body .text-slate-600 { color: #cbd5e1; }
     body .text-slate-500, body .text-slate-400 { color: #94a3b8; }
-    body .text-indigo-600 { color: #a5b4fc; }
-    body .text-indigo-700 { color: #c7d2fe; }
+    body .text-indigo-600 { color: #8cc4ff; }
+    body .text-indigo-700 { color: #b5d8ff; }
     body .text-emerald-600 { color: #34d399; }
     body .text-emerald-700 { color: #6ee7b7; }
     body .text-rose-500, body .text-rose-600 { color: #fb7185; }
@@ -71,23 +79,23 @@
     body .border-slate-200 { border-color: #334155; }
     body .border-slate-300 { border-color: #475569; }
     body .hover\:border-slate-300:hover { border-color: #64748b; }
-    body .border-indigo-100 { border-color: rgba(99,102,241,.3); }
-    body .border-indigo-200 { border-color: rgba(129,140,248,.35); }
-    body .border-indigo-300 { border-color: rgba(129,140,248,.55); }
+    body .border-indigo-100 { border-color: rgba(0,116,255,.3); }
+    body .border-indigo-200 { border-color: rgba(77,156,255,.35); }
+    body .border-indigo-300 { border-color: rgba(77,156,255,.55); }
     body .border-amber-200 { border-color: rgba(245,158,11,.35); }
     body .border-amber-300 { border-color: rgba(245,158,11,.5); }
     body .divide-slate-100 > :not([hidden]) ~ :not([hidden]) { border-color: #273449; }
-    body .ring-indigo-100 { --tw-ring-color: rgba(99,102,241,.35); }
+    body .ring-indigo-100 { --tw-ring-color: rgba(0,116,255,.35); }
   }
 </style>
 <style id="page-style"></style>
 </head>
 <body class="bg-slate-100 text-slate-800 font-sans min-h-screen flex flex-col">
 
-<header class="bg-indigo-700 text-white shadow-md sticky top-0 z-40">
+<header class="bg-indigo-500 text-white shadow-md sticky top-0 z-40" style="background-image:linear-gradient(135deg,#0074FF 0%,#0062D6 100%)">
   <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
-    <h1 class="font-bold text-lg">ProfeScan OMR <span class="text-xs bg-indigo-500 px-2 py-0.5 rounded-full font-normal">Chile</span></h1>
-    <button onclick="openPrint()" class="bg-indigo-600 hover:bg-indigo-500 text-xs px-3 py-1.5 rounded-lg">🖨 Imprimir hoja</button>
+    <h1 class="font-bold text-lg">ProfeScan OMR <span class="text-xs bg-white/20 px-2 py-0.5 rounded-full font-medium">Chile</span></h1>
+    <button onclick="openPrint()" class="bg-white/20 hover:bg-white/30 text-xs font-medium px-3 py-1.5 rounded-lg">🖨 Imprimir hoja</button>
   </div>
 </header>
 
