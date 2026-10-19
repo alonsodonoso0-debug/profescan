@@ -17,10 +17,12 @@
     body > *:not(#print-root) { display: none !important; }
     #print-root { display: block !important; }
     body { background: #fff !important; margin: 0; }
+    #print-root, #print-root * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   }
   .q-btn { width: 1.65rem; height: 1.65rem; }
   video, canvas { max-width: 100%; }
 </style>
+<style id="page-style"></style>
 </head>
 <body class="bg-slate-100 text-slate-800 font-sans min-h-screen flex flex-col">
 
@@ -32,7 +34,8 @@
 </header>
 
 <nav class="bg-white border-b border-slate-200 max-w-4xl mx-auto w-full flex sticky top-[52px] z-30">
-  <button id="btn-tab-scan" onclick="switchTab('tab-scan')" class="flex-1 py-3 font-medium border-b-2">📷 Escáner</button>
+  <button id="btn-tab-scan" onclick="switchTab('tab-scan')" class="flex-1 py-3 text-sm font-medium border-b-2">📷 Escáner</button>
+  <button id="btn-tab-evals" onclick="switchTab('tab-evals')" class="flex-1 py-3 text-sm font-medium border-b-2">📚 Pruebas</button>
   <button id="btn-tab-key" onclick="switchTab('tab-key')" class="flex-1 py-3 font-medium border-b-2">✅ Pauta (<span id="n-tab">30</span>)</button>
   <button id="btn-tab-results" onclick="switchTab('tab-results')" class="flex-1 py-3 font-medium border-b-2">📊 Planilla (<span id="counter-scans">0</span>)</button>
 </nav>
@@ -41,6 +44,15 @@
 
   <!-- ESCÁNER -->
   <section id="tab-scan" class="space-y-4">
+    <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-3 flex items-center justify-between gap-2">
+      <div class="min-w-0">
+        <div class="text-[11px] uppercase tracking-wide font-semibold text-indigo-600">Evaluación activa</div>
+        <div id="sb-name" class="font-bold text-slate-800 truncate"></div>
+        <div id="sb-meta" class="text-xs text-slate-600"></div>
+        <button id="sb-warn" onclick="switchTab('tab-key')" class="hidden mt-1 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-0.5">⚠ Falta ingresar la pauta de respuestas →</button>
+      </div>
+      <button onclick="switchTab('tab-evals')" class="text-xs bg-white border border-indigo-300 text-indigo-700 px-3 py-1.5 rounded-lg whitespace-nowrap">Cambiar</button>
+    </div>
     <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
       <div class="flex justify-between items-center mb-3 gap-2">
         <div>
@@ -99,6 +111,29 @@
     </div>
   </section>
 
+  <!-- PRUEBAS GUARDADAS -->
+  <section id="tab-evals" class="hidden space-y-4">
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+      <div class="flex flex-wrap items-end gap-2">
+        <div class="flex-1 min-w-[12rem]">
+          <label class="text-xs font-medium text-slate-600 block mb-1">Nueva evaluación</label>
+          <input id="inp-new-eval" type="text" maxlength="40" placeholder="Ej: Matemática · 6° básico A" class="border border-slate-300 rounded px-2 py-1.5 text-sm w-full" onkeydown="if(event.key==='Enter')createEval()">
+        </div>
+        <button onclick="createEval()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium px-4 py-2 rounded-lg">＋ Crear</button>
+      </div>
+      <p class="text-[11px] text-slate-500 mt-2">Cada evaluación guarda su pauta, su exigencia y todas las hojas escaneadas. Toca «Escanear» y queda lista; no hay que configurar nada de nuevo.</p>
+    </div>
+    <div id="eval-list" class="space-y-2"></div>
+    <div class="bg-white rounded-xl border border-slate-200 p-4">
+      <h3 class="font-bold text-xs uppercase tracking-wider text-slate-700 mb-2">Respaldo</h3>
+      <div class="flex flex-wrap gap-2">
+        <button onclick="exportBackup()" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg">⬇ Descargar respaldo (todas las evaluaciones)</button>
+        <label class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg cursor-pointer">⬆ Restaurar respaldo<input type="file" accept=".json,application/json" class="hidden" onchange="importBackup(event)"></label>
+      </div>
+      <p class="text-[11px] text-slate-500 mt-2">Los datos viven solo en este dispositivo y navegador. Descarga un respaldo de vez en cuando, y úsalo también para pasar tus evaluaciones del computador al celular.</p>
+    </div>
+  </section>
+
   <!-- PAUTA -->
   <section id="tab-key" class="hidden space-y-4">
     <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
@@ -118,7 +153,7 @@
           </div>
           <div>
             <label class="text-xs font-medium text-slate-600 block">Nombre de la evaluación (sale en la hoja)</label>
-            <input id="inp-title" type="text" maxlength="40" class="border border-slate-300 rounded px-2 py-1 text-sm w-64 max-w-full" placeholder="Ej: Matemática · Unidad 3" oninput="S.title=this.value;persist()">
+            <input id="inp-title" type="text" maxlength="40" class="border border-slate-300 rounded px-2 py-1 text-sm w-64 max-w-full" placeholder="Ej: Matemática · Unidad 3" oninput="onTitle(this.value)">
           </div>
           <div class="flex items-center gap-2">
             <label class="text-xs font-medium text-slate-600">Exigencia:</label>
@@ -150,7 +185,7 @@
     </div>
     <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
       <div class="p-3 bg-slate-50 border-b border-slate-200 flex flex-wrap justify-between items-center gap-2">
-        <h3 class="font-bold text-xs uppercase tracking-wider text-slate-700">Listado de evaluaciones</h3>
+        <h3 id="plan-title" class="font-bold text-xs uppercase tracking-wider text-slate-700">Planilla</h3>
         <div class="flex gap-2">
           <button onclick="clearAll()" class="text-xs bg-white border border-slate-300 text-slate-600 px-3 py-1.5 rounded-lg">Vaciar</button>
           <button onclick="exportCSV()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3 py-1.5 rounded-lg font-medium">⬇ Exportar CSV (Excel)</button>
@@ -174,11 +209,15 @@
     <div class="p-3 border-b border-slate-200 flex justify-between items-center bg-slate-50">
       <h3 id="print-title" class="font-bold text-sm">Hoja de respuestas</h3>
       <div class="flex gap-2 items-center">
-        <button onclick="window.print()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-3 py-1.5 rounded-md">🖨 Imprimir</button>
+        <button onclick="printNow()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-3 py-1.5 rounded-md">🖨 Imprimir</button>
         <button onclick="closeModal('modal-print')" class="text-slate-500 text-lg px-2">✕</button>
       </div>
     </div>
-    <p class="text-[11px] bg-amber-50 text-amber-800 px-3 py-2 border-b border-amber-200">Imprime en <b>carta o A4 al 100 %</b> (sin «ajustar a la página»). Los marcadores y las burbujas deben mantener su tamaño real.</p>
+    <div class="px-3 py-2 border-b border-slate-200 flex flex-wrap gap-x-5 gap-y-1 text-xs text-slate-700">
+      <label class="flex items-center gap-1.5"><input type="radio" name="pm" value="1" checked onchange="setPrintMode('1')"> 1 hoja por página</label>
+      <label class="flex items-center gap-1.5"><input type="radio" name="pm" value="2" onchange="setPrintMode('2')"> 2 hojas por página (se cortan por la mitad)</label>
+    </div>
+    <p id="print-hint" class="text-[11px] bg-amber-50 text-amber-800 px-3 py-2 border-b border-amber-200"></p>
     <div class="p-3 overflow-auto bg-slate-200 flex-1"><div id="print-preview" style="zoom:.62;width:190mm;margin:0 auto"></div></div>
   </div>
 </div>
@@ -311,19 +350,54 @@ const OMR = (() => {
     return pa * sizeR * (1 - dev);
   }
 
+  function barCheck(g, w, h, q) {
+    const P = L.PX, at = (Hm, xm, ym) => {
+      const u = xm * P, v = ym * P, den = Hm[6] * u + Hm[7] * v + 1;
+      const x = Math.round((Hm[0] * u + Hm[1] * v + Hm[2]) / den), y = Math.round((Hm[3] * u + Hm[4] * v + Hm[5]) / den);
+      return (x < 0 || y < 0 || x >= w || y >= h) ? null : g[y * w + x];
+    };
+    for (let k = 0; k < 4; k++) {
+      const Hm = solveH(canonCorners(), rot(q, k));
+      let bar = 0, gap = 0, nb = 0, ng = 0, bad = false;
+      for (let x = 14; x <= 164 && !bad; x += 6) {
+        for (const y of [11, 13, 15]) { const v = at(Hm, x, y); if (v === null) { bad = true; break; } bar += v; nb++; }
+        const v2 = at(Hm, x, 19.6); if (v2 === null) { bad = true; break; } gap += v2; ng++;
+      }
+      if (bad) continue;
+      bar /= nb; gap /= ng;
+      if (bar < 0.6 * gap && gap - bar > 35) return true;
+    }
+    return false;
+  }
+
   function findMarkers(g, w, h) {
     const lim = Math.max(w, h);
     const c = components(binarize(g, w, h), w, h, Math.max(5, lim * 0.008), lim * 0.15)
       .sort((a, b) => b.area - a.area).slice(0, 14);
-    let best = null, bs = 0;
+    const cands = [];
     for (let i = 0; i < c.length; i++) for (let j = i + 1; j < c.length; j++)
       for (let k = j + 1; k < c.length; k++) for (let l = k + 1; l < c.length; l++) {
         const q = orderQuad([c[i], c[j], c[k], c[l]]);
         if (!q) continue;
-        const s = quadScore(q);
-        if (s > bs) { bs = s; best = q; }
+        const sc = quadScore(q);
+        if (sc > 0) cands.push({ q, sc });
       }
-    return best ? { quad: best.map(p => ({ x: p.x, y: p.y, area: p.area })), score: bs } : null;
+    if (!cands.length) return null;
+    // Se comprueba que el cuadrilátero sea de verdad una hoja (la barra negra del título debe quedar donde corresponde);
+    // así no se confunden marcadores de dos hojas distintas.
+    cands.sort((a, b) => b.sc - a.sc);
+    const ok = cands.slice(0, 16).filter(x => barCheck(g, w, h, x.q));
+    if (!ok.length) return null;
+    // Si hay varias hojas a la vista (p. ej. página con 2 hojas sin cortar), se lee la más cercana al centro del encuadre.
+    const top = Math.max(...ok.map(x => x.sc));
+    let best = null, bd = Infinity;
+    for (const x of ok) {
+      if (x.sc < 0.6 * top) continue;
+      const mx = x.q.reduce((a, p) => a + p.x, 0) / 4, my = x.q.reduce((a, p) => a + p.y, 0) / 4;
+      const d = Math.hypot(mx - w / 2, my - h / 2);
+      if (d < bd) { bd = d; best = x; }
+    }
+    return { quad: best.q.map(p => ({ x: p.x, y: p.y, area: p.area })), score: best.sc };
   }
 
   // Homografía: 4 pares src->dst
@@ -416,41 +490,136 @@ const OMR = (() => {
   const rot = (q, k) => q.map((_, i) => q[(i + k) % 4]);
   function homog(canonQuad) { return solveH(canonCorners(), canonQuad); }
 
-  function scanGray(g, w, h) {
-    const m = findMarkers(g, w, h);
-    if (!m) return { ok: false, reason: 'No se ven los 4 marcadores negros de las esquinas. Encuadra la hoja completa, con buena luz y sin sombras.' };
-    const q = m.quad, k0 = quadAspect(q) < 1 ? 0 : 1;
-    let canon = rot(q, k0), wp = warp(g, w, h, homog(canon));
-    let paper = paperLevel(wp);
+  // Calce de la grilla de círculos con el cuadrilátero (muestreo directo en la foto, sin deformarla).
+  // ≈0 si el cuadrilátero mezcla esquinas de hojas distintas; 0.2–0.5 si es una hoja real.
+  function gridAlign(g, w, h, q) {
+    const P = L.PX, k0 = quadAspect(q) < 1 ? 0 : 1; let best = -1;
+    for (const k of [k0, (k0 + 2) % 4]) {
+      const Hm = solveH(canonCorners(), rot(q, k));
+      const at = (xm, ym) => {
+        const u = xm * P, v = ym * P, den = Hm[6] * u + Hm[7] * v + 1;
+        const x = Math.round((Hm[0] * u + Hm[1] * v + Hm[2]) / den), y = Math.round((Hm[3] * u + Hm[4] * v + Hm[5]) / den);
+        return (x < 1 || y < 1 || x >= w - 1 || y >= h - 1) ? null : g[y * w + x];
+      };
+      let sum = 0, n = 0;
+      for (let i = 0; i < L.N; i++) for (let j = 0; j < L.K; j++) {
+        const { x, y } = bubbleXY(i, j); let lo = 0, ou = 0, c = 0;
+        for (let a = 0; a < 8; a++) {
+          const ca = Math.cos(a * Math.PI / 4), sa = Math.sin(a * Math.PI / 4); let m = 255, bad = false;
+          for (const r of [2.2, 2.5, 2.8]) { const v = at(x + r * ca, y + r * sa); if (v === null) { bad = true; break; } if (v < m) m = v; }
+          const o = at(x + 3.9 * ca, y + 3.9 * sa);
+          if (bad || o === null) { c = -1; break; }
+          lo += m; ou += o; c++;
+        }
+        if (c === 8) { sum += (ou - lo) / Math.max(ou, 1); n++; }
+      }
+      if (n >= L.N * L.K * 0.5) best = Math.max(best, sum / n);
+    }
+    return best;
+  }
+  // Cuadriláteros posibles de una hoja: con la barra negra del título donde corresponde, de mayor a menor puntaje.
+  function findCandidates(g, w, h, maxN) {
+    const lim = Math.max(w, h);
+    const c = components(binarize(g, w, h), w, h, Math.max(5, lim * 0.008), lim * 0.15)
+      .sort((a, b) => b.area - a.area).slice(0, 16);
+    const list = [];
+    for (let i = 0; i < c.length; i++) for (let j = i + 1; j < c.length; j++)
+      for (let k = j + 1; k < c.length; k++) for (let l = k + 1; l < c.length; l++) {
+        const q = orderQuad([c[i], c[j], c[k], c[l]]);
+        if (!q) continue;
+        const sc = quadScore(q);
+        if (sc > 0) list.push({ quad: q.map(p => ({ x: p.x, y: p.y, area: p.area })), score: sc });
+      }
+    list.sort((a, b) => b.score - a.score);
+    const out = [];
+    for (const cand of list.slice(0, 60)) {
+      if (!barCheck(g, w, h, cand.quad)) continue;
+      out.push(cand); if (out.length >= maxN) break;
+    }
+    return out;
+  }
+  function evalQuad(g, w, h, q) {
+    const k0 = quadAspect(q) < 1 ? 0 : 1;
+    let canon = rot(q, k0), wp = warp(g, w, h, homog(canon)), paper = paperLevel(wp);
     if (band(wp, 220, 235, paper) > band(wp, 6, 20, paper)) {
       canon = rot(q, (k0 + 2) % 4); wp = warp(g, w, h, homog(canon)); paper = paperLevel(wp);
     }
-    const r = readBubbles(wp);
-    return Object.assign({ ok: true, warped: wp, quad: q }, r);
+    return { wp, quad: q };
+  }
+  const ALIGN_MIN = 0.03;
+  function scanGray(g, w, h) {
+    const cands = findCandidates(g, w, h, 10);
+    if (!cands.length) return { ok: false, reason: 'No se ven los 4 marcadores negros de las esquinas. Encuadra la hoja completa, con buena luz y sin sombras.' };
+    cands.forEach(c => { c.align = gridAlign(g, w, h, c.quad); });
+    const top = Math.max(...cands.map(c => c.align)), good = cands.filter(c => c.align >= Math.max(ALIGN_MIN, 0.5 * top));
+    let pick;
+    if (good.length === 1) pick = good[0];
+    else if (!good.length) {
+      if (cands.length > 1) return { ok: false, reason: 'No se pudo identificar la hoja con claridad. Encuadra una sola hoja, completa y bien iluminada.' };
+      pick = cands[0];   // una única candidata: se lee igual
+    } else {
+      // Varias hojas a la vista (p. ej. página de 2 hojas sin cortar): solo se lee si una está claramente más al centro.
+      const dc = e => Math.hypot(e.quad.reduce((a, p) => a + p.x, 0) / 4 - w / 2, e.quad.reduce((a, p) => a + p.y, 0) / 4 - h / 2);
+      good.sort((a, b) => dc(a) - dc(b));
+      if (dc(good[0]) < 0.6 * dc(good[1])) pick = good[0];
+      else return { ok: false, reason: 'Se ven dos hojas a la vez. Corta la página por la mitad o encuadra solo una hoja.' };
+    }
+    const e = evalQuad(g, w, h, pick.quad), r = readBubbles(e.wp);
+    return Object.assign({ ok: true, warped: e.wp, quad: e.quad, align: pick.align }, r);
   }
 
-  return { L, setLayout, bubbleXY, findMarkers, scanGray, solveH, readBubbles };
+  return { L, setLayout, bubbleXY, findMarkers, findCandidates, evalQuad, scanGray, solveH, readBubbles };
 })();
 </script>
 
 <!-- ============ INTERFAZ ============ -->
 <script>
-const KEY = 'profescan.v2';
+const KEY = 'profescan.v3';              // base con todas las evaluaciones guardadas
+const OLD_KEYS = ['profescan.v2', 'profescan.v1'];
 const SHEET_N = 30;   // la hoja impresa siempre tiene 30 filas
 let N, OPTS;          // N = preguntas evaluadas (1 a 30); OPTS = alternativas
-let S = (() => {
-  try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && s.n >= 1 && s.n <= SHEET_N && (s.k === 4 || s.k === 5) && s.key && s.key.length === SHEET_N && Array.isArray(s.records)) return s; } catch (e) {}
-  return { n: 30, k: 4, key: Array.from({ length: SHEET_N }, (_, i) => 'ABCD'[i % 4]), ex: 0.6, title: '', records: [] };
-})();
+const uid = () => 'e' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const defaultKey = () => Array.from({ length: SHEET_N }, (_, i) => 'ABCD'[i % 4]);
+function newEval(title, base) {
+  return Object.assign({ id: uid(), title: title || '', n: 30, k: 4, key: defaultKey(), keySet: false, ex: 0.6, records: [], created: Date.now(), updated: Date.now() }, base || {});
+}
+// Acepta formatos anteriores o de un respaldo y devuelve una evaluación válida (o null).
+function normEval(s) {
+  if (!s || !Array.isArray(s.key) || !Array.isArray(s.records)) return null;
+  const k = s.k === 4 ? 4 : 5, valid = 'ABCDE'.slice(0, k), n = s.k === undefined ? s.key.length : Math.min(SHEET_N, Math.max(1, parseInt(s.n, 10) || s.key.length));   // en la v1, «n» era un contador, no las preguntas
+  const key = s.key.slice(0, SHEET_N).map(a => valid.includes(a) && a ? a : 'A'); while (key.length < SHEET_N) key.push('A');
+  const records = s.records.filter(r => r && Array.isArray(r.answers)).map(r => {
+    const ans = r.answers.slice(0, SHEET_N).map(a => (typeof a === 'string' && /^[A-E*]?$/.test(a)) ? a : ''); while (ans.length < SHEET_N) ans.push('');
+    return { name: String(r.name || '').slice(0, 80), time: String(r.time || ''), answers: ans };
+  });
+  const id = String(s.id || '').replace(/[^\w-]/g, '') || uid();
+  return { id, title: String(s.title || '').slice(0, 40), n, k, key, keySet: s.keySet !== false, ex: [0.5, 0.6, 0.7].includes(s.ex) ? s.ex : 0.6, records, created: +s.created || Date.now(), updated: +s.updated || Date.now() };
+}
+function loadDB() {
+  try {
+    const d = JSON.parse(localStorage.getItem(KEY));
+    if (d && Array.isArray(d.evals)) { const ev = d.evals.map(normEval).filter(Boolean); if (ev.length) return { evals: ev, cur: ev.some(e => e.id === d.cur) ? d.cur : ev[0].id }; }
+  } catch (e) {}
+  for (const k of OLD_KEYS) {   // migra lo guardado por versiones anteriores (una sola evaluación)
+    try { const e = normEval(JSON.parse(localStorage.getItem(k))); if (e) { e.title = e.title || 'Mi evaluación'; return { evals: [e], cur: e.id }; } } catch (e) {}
+  }
+  const e = newEval('Mi primera evaluación');
+  return { evals: [e], cur: e.id };
+}
+let DB = loadDB();
+let S = DB.evals.find(e => e.id === DB.cur);   // evaluación activa
 function applyLayout() { OMR.setLayout(SHEET_N, S.k); N = S.n; OPTS = OMR.L.OPTS.slice(0, S.k); }
 applyLayout();
-function persist() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { toast('No se pudo guardar en el dispositivo (almacenamiento lleno).'); } }
+function persist(touch = true) {
+  try { if (touch) S.updated = Date.now(); DB.cur = S.id; localStorage.setItem(KEY, JSON.stringify(DB)); }
+  catch (e) { toast('No se pudo guardar en el dispositivo (almacenamiento lleno o bloqueado).', 4000); }
+}
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 let pending = null;      // lectura aún no guardada
 let rv = null;           // estado del modal de revisión
-let stream = null, liveTimer = null, stableCount = 0, armed = true, auto = false, busy = false;
+let stream = null, liveTimer = null, stableCount = 0, armed = true, auto = false, busy = false, capC = null;
 
 /* ---------- Notas ---------- */
 function gradeCL(score, max, ex) {
@@ -458,11 +627,12 @@ function gradeCL(score, max, ex) {
   const g = score < cut ? 1 + 3 * score / cut : 4 + 3 * (score - cut) / (max - cut);
   return Math.round(g * 10 + 1e-9) / 10;
 }
-function evalRec(rec) {
+function evalOf(e, rec) {
   let score = 0;
-  for (let i = 0; i < N; i++) if (rec.answers[i] === S.key[i]) score++;
-  return { score, pct: Math.round(score / N * 100), grade: gradeCL(score, N, S.ex) };
+  for (let i = 0; i < e.n; i++) if (rec.answers[i] === e.key[i]) score++;
+  return { score, pct: Math.round(score / e.n * 100), grade: gradeCL(score, e.n, e.ex) };
 }
+function evalRec(rec) { return evalOf(S, rec); }
 const gradeCls = g => g >= 4 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700';
 
 /* ---------- UI general ---------- */
@@ -471,10 +641,11 @@ function toast(msg, ms = 2500) {
   clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.add('hidden'), ms);
 }
 function switchTab(id) {
-  ['tab-scan', 'tab-key', 'tab-results'].forEach(t => {
+  ['tab-scan', 'tab-evals', 'tab-key', 'tab-results'].forEach(t => {
     $(t).classList.toggle('hidden', t !== id);
-    $('btn-' + t).className = 'flex-1 py-3 font-medium border-b-2 ' + (t === id ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500');
+    $('btn-' + t).className = 'flex-1 py-3 text-sm font-medium border-b-2 ' + (t === id ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500');
   });
+  if (id === 'tab-evals') renderEvals();
 }
 function openModal(id) { $(id).classList.remove('hidden'); $(id).classList.add('flex'); }
 function closeModal(id) { $(id).classList.add('hidden'); $(id).classList.remove('flex'); }
@@ -493,16 +664,16 @@ function renderKey() {
     </div>`).join('');
   $('sel-ex').value = String(S.ex);
   $('inp-title').value = S.title || '';
-  $('inp-n').value = S.n; $('sel-k').value = String(S.k); $('n-tab').textContent = S.n;
+  $('inp-n').value = S.n; $('sel-k').value = String(S.k); $('n-tab').textContent = S.n; renderBanner();
 }
-function setKey(i, o) { S.key[i] = o; persist(); renderKey(); renderAll(true); }
+function setKey(i, o) { S.key[i] = o; S.keySet = true; persist(); renderKey(); renderAll(true); }
 function pasteKey() {
   const v = (prompt(`Pega las ${N} letras de la pauta (${OPTS.join('')}). Se ignoran espacios y comas:`) || '').toUpperCase().replace(new RegExp('[^' + OPTS.join('') + ']', 'g'), '');
   if (!v) return;
   if (v.length !== N) { toast(`La pauta debe tener ${N} letras (llegaron ${v.length}).`, 3500); return; }
-  S.key = v.split('').concat(S.key.slice(N)); persist(); renderKey(); renderAll(true); toast('Pauta actualizada.');
+  S.key = v.split('').concat(S.key.slice(N)); S.keySet = true; persist(); renderKey(); renderAll(true); toast('Pauta actualizada.');
 }
-function clearKey() { if (confirm('¿Reiniciar toda la pauta a «A»?')) { S.key = Array(SHEET_N).fill('A'); persist(); renderKey(); renderAll(true); } }
+function clearKey() { if (confirm('¿Reiniciar toda la pauta a «A»?')) { S.key = Array(SHEET_N).fill('A'); S.keySet = false; persist(); renderKey(); renderAll(true); } }
 
 function changeLayout() {
   const n = parseInt($('inp-n').value, 10), k = parseInt($('sel-k').value, 10);
@@ -521,8 +692,93 @@ function changeLayout() {
   toast(`Se evalúan ${n} de ${SHEET_N} preguntas. Las notas se recalcularon.`, 3500);
 }
 
+/* ---------- Evaluaciones guardadas ---------- */
+function onTitle(v) { S.title = v; persist(); renderBanner(); $('plan-title').textContent = 'Planilla · ' + (v || 'Sin nombre'); }
+function renderBanner() {
+  if (!$('sb-name')) return;
+  $('sb-name').textContent = S.title || 'Evaluación sin nombre';
+  $('sb-meta').textContent = `${N} preguntas · A–${OPTS[OPTS.length - 1]} · exigencia ${Math.round(S.ex * 100)}% · ${S.records.length} escaneada${S.records.length === 1 ? '' : 's'}`;
+  $('sb-warn').classList.toggle('hidden', !!S.keySet);
+}
+function selectEval(id) {
+  const e = DB.evals.find(x => x.id === id);
+  if (!e) return;
+  if (e !== S) { S = e; pending = null; $('instant-card').classList.add('hidden'); applyLayout(); }
+  persist(); renderKey(); renderAll(); renderEvals();
+}
+function openEval(id) { selectEval(id); switchTab('tab-scan'); }
+function createEval() {
+  const inp = $('inp-new-eval'), name = (inp.value || '').trim() || `Evaluación ${DB.evals.length + 1}`;
+  const e = newEval(name, { ex: S.ex }); DB.evals.push(e); inp.value = '';
+  selectEval(e.id); switchTab('tab-key'); toast('Evaluación creada. Ingresa la pauta de respuestas.', 4000);
+}
+function dupEval(id) {
+  const src = DB.evals.find(x => x.id === id); if (!src) return;
+  const e = newEval((src.title || 'Evaluación') + ' (copia)', { n: src.n, k: src.k, key: src.key.slice(), keySet: src.keySet, ex: src.ex });
+  DB.evals.push(e); selectEval(e.id); toast('Copia creada con la misma pauta, sin alumnos.', 3500);
+}
+function renameEval(id) {
+  const e = DB.evals.find(x => x.id === id); if (!e) return;
+  const v = prompt('Nombre de la evaluación:', e.title); if (v === null) return;
+  e.title = v.trim().slice(0, 40); persist(false); renderKey(); renderAll(); renderEvals();
+}
+function deleteEval(id) {
+  const e = DB.evals.find(x => x.id === id); if (!e) return;
+  if (DB.evals.length === 1) { toast('Debe quedar al menos una evaluación.', 3000); return; }
+  if (!confirm(`¿Eliminar «${e.title || 'Sin nombre'}» y sus ${e.records.length} alumno(s)? No se puede deshacer. Si quieres conservarlos, descarga antes un respaldo.`)) return;
+  DB.evals = DB.evals.filter(x => x !== e);
+  if (e === S) selectEval(DB.evals.slice().sort((a, b) => b.updated - a.updated)[0].id);
+  else { persist(false); renderEvals(); }
+}
+function renderEvals() {
+  const list = DB.evals.slice().sort((a, b) => b.updated - a.updated);
+  $('eval-list').innerHTML = list.map(e => {
+    const act = e === S, rs = e.records.map(r => evalOf(e, r));
+    const avg = rs.length ? (rs.reduce((a, x) => a + x.grade, 0) / rs.length).toFixed(1) : '--';
+    const meta = `${e.n} preguntas · A–${OMR.L.OPTS[e.k - 1]} · exigencia ${Math.round(e.ex * 100)}% · ${e.records.length === 1 ? '1 alumno' : e.records.length + ' alumnos'} · promedio ${avg} · ${new Date(e.updated).toLocaleDateString('es-CL')}`;
+    return `<div class="bg-white rounded-xl border p-3 ${act ? 'border-indigo-500 ring-2 ring-indigo-100' : 'border-slate-200'}">
+      <div class="flex items-start justify-between gap-2">
+        <div class="min-w-0">
+          <div class="font-bold text-slate-800 truncate">${esc(e.title || 'Sin nombre')}${act ? ' <span class="ml-1 text-[10px] bg-indigo-600 text-white px-2 py-0.5 rounded-full align-middle">Activa</span>' : ''}${e.keySet ? '' : ' <span class="ml-1 text-[10px] bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full align-middle">Pauta pendiente</span>'}</div>
+          <div class="text-xs text-slate-500">${meta}</div>
+        </div>
+        <div class="flex gap-1 shrink-0 text-base">
+          <button onclick="dupEval('${e.id}')" class="p-1" title="Duplicar (misma pauta, sin alumnos)">⧉</button>
+          <button onclick="renameEval('${e.id}')" class="p-1" title="Cambiar nombre">✏️</button>
+          <button onclick="deleteEval('${e.id}')" class="p-1 text-rose-500" title="Eliminar">🗑</button>
+        </div>
+      </div>
+      <div class="flex gap-2 mt-2">
+        <button onclick="openEval('${e.id}')" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium py-2 rounded-lg">📷 Escanear esta evaluación</button>
+        <button onclick="selectEval('${e.id}');switchTab('tab-results')" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm px-3 py-2 rounded-lg">📊 Planilla</button>
+      </div>
+    </div>`; }).join('');
+}
+function exportBackup() {
+  const blob = new Blob([JSON.stringify({ app: 'profescan', version: 3, exportado: new Date().toISOString(), evals: DB.evals })], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `profescan_respaldo_${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(a); a.click(); a.remove(); toast('Respaldo descargado.');
+}
+function importBackup(ev) {
+  const f = ev.target.files[0]; ev.target.value = ''; if (!f) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    try {
+      const d = JSON.parse(rd.result), list = (Array.isArray(d.evals) ? d.evals : [d]).map(normEval).filter(Boolean);
+      if (!list.length) throw new Error('vacío');
+      const dup = list.filter(e => DB.evals.some(x => x.id === e.id)).length;
+      if (!confirm(`El respaldo trae ${list.length} evaluación(es).${dup ? ` ${dup} ya existe(n) aquí y se reemplazará(n) por la versión del respaldo.` : ''} ¿Restaurar?`)) return;
+      list.forEach(e => { const i = DB.evals.findIndex(x => x.id === e.id); if (i >= 0) DB.evals[i] = e; else DB.evals.push(e); });
+      S = DB.evals.find(e => e.id === S.id) || DB.evals[0]; pending = null; applyLayout();
+      persist(false); renderKey(); renderAll(); renderEvals(); toast(`Respaldo restaurado (${list.length}).`, 3500);
+    } catch (e) { toast('Ese archivo no es un respaldo válido de ProfeScan.', 4000); }
+  };
+  rd.readAsText(f);
+}
+
 /* ---------- Planilla ---------- */
 function renderAll(skipKey) {
+  renderBanner(); $('plan-title').textContent = 'Planilla · ' + (S.title || 'Sin nombre');
   $('counter-scans').textContent = S.records.length;
   const tb = $('tbody');
   if (!S.records.length) tb.innerHTML = '<tr><td colspan="6" class="p-6 text-center text-slate-400">Aún no hay hojas registradas.</td></tr>';
@@ -663,19 +919,19 @@ function scanCanvas(c) { return OMR.scanGray(toGray(c), c.width, c.height); }
 async function handleUpload(ev) {
   const files = [...ev.target.files]; ev.target.value = '';
   if (!files.length) return;
-  let saved = 0, failed = [];
+  let saved = 0, failed = [], lastReason = '';
   for (const f of files) {
     try {
       const bmp = await createImageBitmap(f);
       const res = scanCanvas(drawScaled(bmp, bmp.width, bmp.height, 1600));
-      if (!res.ok) { failed.push(f.name); continue; }
+      if (!res.ok) { failed.push(f.name); lastReason = res.reason; continue; }
       if (files.length === 1) { beep(); showPending(res); return; }
       S.records.push({ name: f.name.replace(/\.[^.]+$/, '') || nextName(), time: new Date().toLocaleTimeString('es-CL'), answers: res.answers }); saved++;
     } catch (e) { failed.push(f.name); }
     toast(`Procesando… ${saved + failed.length}/${files.length}`, 1500);
     await new Promise(r => setTimeout(r, 0));
   }
-  if (files.length === 1 && failed.length) { toast('No se detectaron los 4 marcadores en la foto.', 4000); return; }
+  if (files.length === 1 && failed.length) { toast(lastReason || 'No se detectaron los 4 marcadores en la foto.', 4500); return; }
   persist(); renderAll();
   toast(`${saved} hoja(s) guardadas${failed.length ? ` · ${failed.length} no legibles: ${failed.slice(0, 3).join(', ')}${failed.length > 3 ? '…' : ''}` : ''}.`, 5000);
   if (saved) switchTab('tab-results');
@@ -715,7 +971,10 @@ function liveTick() {
     m.quad.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)); ctx.closePath(); ctx.stroke();
     m.quad.forEach(p => { ctx.fillStyle = '#34d399'; ctx.fillRect(p.x - 4, p.y - 4, 8, 8); });
     stableCount++; st.textContent = '✓ 4 marcadores detectados'; st.className = 'absolute top-2 left-2 text-[11px] font-semibold px-2 py-1 rounded-full bg-emerald-600 text-white';
-    if (auto && armed && stableCount >= 3) { armed = false; captureFromCamera(true); }
+    const mx = m.quad.reduce((a, p) => a + p.x, 0) / 4, my = m.quad.reduce((a, p) => a + p.y, 0) / 4, sw = Math.hypot(m.quad[1].x - m.quad[0].x, m.quad[1].y - m.quad[0].y);
+    // al mover la cámara a otra hoja (p. ej. la otra mitad de la página) se rearma sin necesidad de perder los marcadores
+    if (!armed && capC && Math.hypot(mx - capC.x, my - capC.y) > 0.6 * capC.w) { armed = true; stableCount = 0; }
+    if (auto && armed && stableCount >= 3) { armed = false; capC = { x: mx, y: my, w: sw }; captureFromCamera(true); }
   } else {
     stableCount = 0; st.textContent = auto ? 'Esperando hoja…' : 'Buscando marcadores…'; st.className = 'absolute top-2 left-2 text-[11px] font-semibold px-2 py-1 rounded-full bg-black/60 text-white';
     if (!armed && ++liveTick.miss >= 3) { armed = true; liveTick.miss = 0; }
@@ -740,41 +999,58 @@ function captureFromCamera(fromAuto) {
 }
 
 /* ---------- Hoja imprimible (misma geometría que el lector) ---------- */
-function sheetHTML() {
-  const L = OMR.L, O = 6;
+function sheetHTML(tf = 1) {
+  const L = OMR.L, O = 6, f = v => +(v * tf).toFixed(2), fb = v => +(v * (1 + (tf - 1) * 0.5)).toFixed(2);
   const el = (x, y, w, h, st, inner = '') => `<div style="position:absolute;left:${+(O + x).toFixed(2)}mm;top:${+(O + y).toFixed(2)}mm;width:${w}mm;height:${h}mm;${st}">${inner}</div>`;
   let h = '';
   [[0, 0], [L.W, 0], [L.W, L.H], [0, L.H]].forEach(([x, y]) => { h += el(x - L.markerSize / 2, y - L.markerSize / 2, L.markerSize, L.markerSize, 'background:#000'); });
-  h += el(L.bar.x, L.bar.y, L.bar.w, L.bar.h, 'background:#000;color:#fff;font-weight:900;font-size:4.2mm;line-height:8mm;text-align:center;letter-spacing:.5mm', `HOJA DE RESPUESTAS · ${L.N} PREGUNTAS`);
-  const fld = (x, y, w, t) => el(x, y, w, 7, 'border-bottom:.3mm solid #000;font-size:3mm;line-height:10mm;white-space:nowrap;overflow:hidden', t);
+  h += el(L.bar.x, L.bar.y, L.bar.w, L.bar.h, `background:#000;color:#fff;font-weight:900;font-size:${fb(4.2)}mm;line-height:8mm;text-align:center;letter-spacing:.5mm`, `HOJA DE RESPUESTAS · ${L.N} PREGUNTAS`);
+  const fld = (x, y, w, t) => el(x, y, w, 7, `border-bottom:.3mm solid #000;font-size:${f(3)}mm;line-height:10mm;white-space:nowrap;overflow:hidden`, t);
   h += fld(10, 22, 158, 'Nombre:');
   h += fld(10, 31, 76, 'RUT:') + fld(92, 31, 76, 'Curso:');
   h += fld(10, 40, 76, 'Evaluación: ' + esc(S.title || '')) + fld(92, 40, 76, 'Fecha:');
   h += fld(10, 49, 76, 'Puntaje:') + fld(92, 49, 76, 'Nota:');
-  h += el(10, 58, 158, 8, 'font-size:2.5mm;line-height:3.4mm;text-align:center;font-weight:bold', 'RELLENE COMPLETAMENTE EL CÍRCULO CON LÁPIZ PASTA O GRAFITO OSCURO.<br>UNA SOLA ALTERNATIVA POR PREGUNTA. NO USE CRUZ NI VISTO BUENO.');
+  h += el(10, 58, 158, 8, `font-size:${f(2.5)}mm;line-height:${f(3.4)}mm;text-align:center;font-weight:bold`, 'RELLENE COMPLETAMENTE EL CÍRCULO CON LÁPIZ PASTA O GRAFITO OSCURO.<br>UNA SOLA ALTERNATIVA POR PREGUNTA. NO USE CRUZ NI VISTO BUENO.');
   for (let c = 0; c < L.cols; c++) for (let j = 0; j < S.k; j++) {
     const { x } = OMR.bubbleXY(c * L.rows, j);
-    h += el(x - 2.5, L.lettersY - 2, 5, 4, 'text-align:center;font-weight:bold;font-size:3.2mm;line-height:4mm', OPTS[j]);
+    h += el(x - 2.5, L.lettersY - 2, 5, 4, `text-align:center;font-weight:bold;font-size:${f(3.2)}mm;line-height:4mm`, OPTS[j]);
   }
   for (let q = 0; q < L.N; q++) {
     const x0 = L.colX[Math.floor(q / L.rows)], { y } = OMR.bubbleXY(q, 0);
-    h += el(x0, y - 2, 8, 4, 'text-align:right;font-weight:bold;font-size:3.4mm;line-height:4mm', (q + 1) + '.');
+    h += el(x0, y - 2, 8, 4, `text-align:right;font-weight:bold;font-size:${f(3.4)}mm;line-height:4mm`, (q + 1) + '.');
     for (let j = 0; j < S.k; j++) { const b = OMR.bubbleXY(q, j); h += el(b.x - L.bubbleR, b.y - L.bubbleR, L.bubbleR * 2, L.bubbleR * 2, 'box-sizing:border-box;border:.35mm solid #000;border-radius:50%'); }
   }
-  h += el(10, 224, 158, 4, 'text-align:center;font-size:2.4mm;color:#333', 'ProfeScan OMR · Mantenga la hoja limpia, plana y sin arrugas · No cubra los cuadrados negros');
+  h += el(10, 224, 158, 4, `text-align:center;font-size:${f(2.4)}mm;color:#333`, 'ProfeScan OMR · Mantenga la hoja limpia, plana y sin arrugas · No cubra los cuadrados negros');
   return `<div style="position:relative;width:190mm;height:250mm;background:#fff;color:#000;font-family:Arial,Helvetica,sans-serif;overflow:hidden">${h}</div>`;
 }
-function openPrint() {
-  $('print-title').textContent = `Hoja de respuestas (${SHEET_N} preguntas · A–${OPTS[OPTS.length - 1]})`;
-  const html = sheetHTML();
-  $('print-preview').innerHTML = `<div style="border:1px solid #94a3b8;box-shadow:0 2px 8px rgba(0,0,0,.2)">${html}</div>`;
-  $('print-root').innerHTML = `<div style="width:190mm;margin:8mm auto 0">${html}</div>`;
-  openModal('modal-print');
+let printMode = '1';
+function pageHTML(mode) {
+  if (mode === '1') return `<div style="width:190mm;margin:8mm auto 0">${sheetHTML(1)}</div>`;
+  const sc = 0.68, w = +(190 * sc).toFixed(1), h = +(250 * sc).toFixed(1), one = sheetHTML(1.3);
+  const cell = last => `<div style="width:50%;height:205mm;box-sizing:border-box;display:flex;justify-content:center;align-items:flex-start;padding-top:17mm;${last ? '' : 'border-right:.25mm dashed #777;'}"><div style="width:${w}mm;height:${h}mm;overflow:hidden"><div style="width:190mm;height:250mm;transform:scale(${sc});transform-origin:0 0">${one}</div></div></div>`;
+  return `<div style="display:flex;width:100%;height:205mm">${cell(false)}${cell(true)}</div>`;
 }
+function renderPrint() {
+  const html = pageHTML(printMode), two = printMode === '2', pv = $('print-preview');
+  $('print-title').textContent = `Hoja de respuestas (${SHEET_N} preguntas · A–${OPTS[OPTS.length - 1]})`;
+  pv.style.zoom = two ? '.5' : '.62'; pv.style.width = two ? '279mm' : '190mm';
+  pv.innerHTML = `<div style="border:1px solid #94a3b8;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.2)">${html}</div>`;
+  $('print-root').innerHTML = html;
+  $('print-hint').innerHTML = two
+    ? 'Imprime en <b>horizontal</b>, tamaño carta o A4, <b>escala 100 %</b> (sin «ajustar a la página»). Corta la hoja por la línea punteada: cada mitad es una hoja de respuestas completa.'
+    : 'Imprime en <b>carta o A4 al 100 %</b> (sin «ajustar a la página»). Los marcadores y las burbujas deben mantener su tamaño real.';
+}
+function setPrintMode(m) { printMode = m; renderPrint(); }
+function printNow() {
+  $('page-style').textContent = printMode === '2' ? '@page{size:landscape;margin:0}' : '@page{margin:0}';
+  window.print();
+}
+function openPrint() { renderPrint(); openModal('modal-print'); }
 
 /* ---------- Inicio + PWA ---------- */
 window.addEventListener('DOMContentLoaded', () => {
   renderKey(); renderAll(); switchTab('tab-scan');
+  try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
 });
 </script>
