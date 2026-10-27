@@ -234,7 +234,8 @@
           <button onclick="clearKey()" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded">Reiniciar a A</button>
         </div>
       </div>
-      <p class="text-[11px] text-slate-500 mb-2">Si cambias la pauta, las notas de la planilla se recalculan solas.</p>
+      <p class="text-[11px] text-slate-500 mb-1">Si cambias la pauta, las notas de la planilla se recalculan solas. Toca <b>Nula</b> en una pregunta para anularla (por ejemplo, si se saltó en la prueba): no cuenta para ningún alumno y el total baja.</p>
+      <p id="nul-info" class="text-[11px] font-semibold text-amber-700 mb-2"></p>
       <div id="key-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2"></div>
     </div>
   </section>
@@ -657,7 +658,7 @@ function newEval(title, base) {
 function normEval(s) {
   if (!s || !Array.isArray(s.key) || !Array.isArray(s.records)) return null;
   const k = s.k === 4 ? 4 : 5, valid = 'ABCDE'.slice(0, k), n = s.k === undefined ? s.key.length : Math.min(SHEET_N, Math.max(1, parseInt(s.n, 10) || s.key.length));   // en la v1, «n» era un contador, no las preguntas
-  const key = s.key.slice(0, SHEET_N).map(a => valid.includes(a) && a ? a : 'A'); while (key.length < SHEET_N) key.push('A');
+  const key = s.key.slice(0, SHEET_N).map(a => (a === 'N' || (a && valid.includes(a))) ? a : 'A'); while (key.length < SHEET_N) key.push('A');
   const records = s.records.filter(r => r && Array.isArray(r.answers)).map(r => {
     const ans = r.answers.slice(0, SHEET_N).map(a => (typeof a === 'string' && /^[A-E*]?$/.test(a)) ? a : ''); while (ans.length < SHEET_N) ans.push('');
     return { name: String(r.name || '').slice(0, 80), time: String(r.time || ''), answers: ans };
@@ -697,10 +698,12 @@ function gradeCL(score, max, ex) {
   const g = score < cut ? 1 + 3 * score / cut : 4 + 3 * (score - cut) / (max - cut);
   return Math.round(g * 10 + 1e-9) / 10;
 }
+const nulCount = e => e.key.slice(0, e.n).filter(a => a === 'N').length;
 function evalOf(e, rec) {
-  let score = 0;
-  for (let i = 0; i < e.n; i++) if (rec.answers[i] === e.key[i]) score++;
-  return { score, pct: Math.round(score / e.n * 100), grade: gradeCL(score, e.n, e.ex) };
+  let score = 0, total = 0;
+  for (let i = 0; i < e.n; i++) { if (e.key[i] === 'N') continue; total++; if (rec.answers[i] === e.key[i]) score++; }   // las anuladas no cuentan
+  if (!total) return { score: 0, total: 0, pct: 0, grade: 1.0 };
+  return { score, total, pct: Math.round(score / total * 100), grade: gradeCL(score, total, e.ex) };
 }
 function evalRec(rec) { return evalOf(S, rec); }
 const gradeCls = g => g >= 4 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700';
@@ -730,15 +733,18 @@ function renderKey() {
   $('key-grid').innerHTML = S.key.slice(0, N).map((k, i) => `
     <div class="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-200 text-xs">
       <span class="font-bold text-slate-600 w-8">#${i + 1}</span>
-      <div class="flex gap-1">${OPTS.map(o => `<button onclick="setKey(${i},'${o}')" class="q-btn rounded-full font-bold ${k === o ? 'bg-indigo-600 text-white' : 'bg-white border border-slate-300 text-slate-700'}">${o}</button>`).join('')}</div>
+      <div class="flex gap-1 items-center">${OPTS.map(o => `<button onclick="setKey(${i},'${o}')" class="q-btn rounded-full font-bold ${k === o ? 'bg-indigo-600 text-white' : 'bg-white border border-slate-300 text-slate-700'}">${o}</button>`).join('')}<button onclick="setKey(${i},'N')" title="Anular esta pregunta: no cuenta para nadie" class="ml-1 px-2.5 rounded-full text-[11px] font-semibold ${k === 'N' ? 'bg-slate-800 text-white' : 'bg-white border border-slate-300 text-slate-500'}" style="height:1.65rem">Nula</button></div>
     </div>`).join('');
+  const nu = nulCount(S); $('nul-info').textContent = nu ? `${nu} pregunta${nu === 1 ? '' : 's'} anulada${nu === 1 ? '' : 's'}: no cuenta${nu === 1 ? '' : 'n'} para nadie y el puntaje total pasa a ${N - nu}.` : '';
   $('sel-ex').value = String(S.ex); $('sel-ex2').value = String(S.ex);
   $('inp-title').value = S.title || '';
   $('inp-n').value = S.n; $('sel-k').value = String(S.k); $('n-tab').textContent = S.n; renderBanner();
 }
-function setKey(i, o) { S.key[i] = o; S.keySet = true; persist(); renderKey(); renderAll(true); }
+function setKey(i, o) {
+  if (o === 'N' && S.key[i] !== 'N' && nulCount(S) + 1 >= N) { toast('Debe quedar al menos una pregunta válida.', 3000); return; }
+  S.key[i] = o; S.keySet = true; persist(); renderKey(); renderAll(true); }
 function pasteKey() {
-  const v = (prompt(`Pega las ${N} letras de la pauta (${OPTS.join('')}). Se ignoran espacios y comas:`) || '').toUpperCase().replace(new RegExp('[^' + OPTS.join('') + ']', 'g'), '');
+  const v = (prompt(`Pega las ${N} letras de la pauta (${OPTS.join('')}). Usa N o - para una pregunta anulada. Se ignoran espacios y comas:`) || '').toUpperCase().replace(/-/g, 'N').replace(new RegExp('[^' + OPTS.join('') + 'N]', 'g'), '');
   if (!v) return;
   if (v.length !== N) { toast(`La pauta debe tener ${N} letras (llegaron ${v.length}).`, 3500); return; }
   S.key = v.split('').concat(S.key.slice(N)); S.keySet = true; persist(); renderKey(); renderAll(true); toast('Pauta actualizada.');
@@ -752,7 +758,7 @@ function changeLayout() {
   if (k !== S.k) {
     if (S.records.length && !confirm(`Cambiar las alternativas vacía la planilla (${S.records.length} registros), porque ya no coinciden con la hoja. ¿Continuar? Si quieres conservarlos, cancela y exporta el CSV primero.`)) { back(); return; }
     S.records = []; pending = null; $('instant-card').classList.add('hidden');
-    S.k = k; S.key = S.key.map(a => (OMR.L.OPTS.slice(0, k).includes(a) ? a : 'A'));
+    S.k = k; S.key = S.key.map(a => (a === 'N' || OMR.L.OPTS.slice(0, k).includes(a) ? a : 'A'));
     S.n = n; applyLayout(); persist(); renderKey(); renderAll();
     toast(`Alternativas A–${OMR.L.OPTS[k - 1]}. Imprime una hoja nueva.`, 4500);
     return;
@@ -767,7 +773,8 @@ function onTitle(v) { S.title = v; persist(); renderBanner(); $('plan-title').te
 function renderBanner() {
   if (!$('sb-name')) return;
   $('sb-name').textContent = S.title || 'Evaluación sin nombre';
-  $('sb-meta').textContent = `${N} preguntas · A–${OPTS[OPTS.length - 1]} · exigencia ${Math.round(S.ex * 100)}% · ${S.records.length} escaneada${S.records.length === 1 ? '' : 's'}`;
+  const nu = nulCount(S);
+  $('sb-meta').textContent = `${N} preguntas${nu ? ` (${nu} anulada${nu === 1 ? '' : 's'})` : ''} · A–${OPTS[OPTS.length - 1]} · exigencia ${Math.round(S.ex * 100)}% · ${S.records.length} escaneada${S.records.length === 1 ? '' : 's'}`;
   $('sb-warn').classList.toggle('hidden', !!S.keySet);
 }
 function selectEval(id) {
@@ -809,7 +816,7 @@ function renderEvals() {
   $('eval-list').innerHTML = list.map(e => {
     const act = e === S, rs = e.records.map(r => evalOf(e, r));
     const avg = rs.length ? (rs.reduce((a, x) => a + x.grade, 0) / rs.length).toFixed(1) : '--';
-    const meta = `${e.n} preguntas · A–${OMR.L.OPTS[e.k - 1]} · exigencia ${Math.round(e.ex * 100)}% · ${e.records.length === 1 ? '1 alumno' : e.records.length + ' alumnos'} · promedio ${avg} · ${new Date(e.updated).toLocaleDateString('es-CL')}`;
+    const nu = nulCount(e), meta = `${e.n} preguntas${nu ? ` (${nu} anulada${nu === 1 ? '' : 's'})` : ''} · A–${OMR.L.OPTS[e.k - 1]} · exigencia ${Math.round(e.ex * 100)}% · ${e.records.length === 1 ? '1 alumno' : e.records.length + ' alumnos'} · promedio ${avg} · ${new Date(e.updated).toLocaleDateString('es-CL')}`;
     return `<div class="bg-white rounded-xl border p-3 ${act ? 'border-indigo-500 ring-2 ring-indigo-100' : 'border-slate-200'}">
       <div class="flex items-start gap-3">
         <label class="flex flex-col items-center gap-0.5 shrink-0 cursor-pointer pt-0.5" title="Marca para usar esta evaluación en el escáner">
@@ -867,17 +874,17 @@ function setEx(v) {
 }
 function renderAll(skipKey) {
   $('sel-ex2').value = String(S.ex);
-  $('ex-info').textContent = `Nota 4.0 con ${+(N * S.ex).toFixed(2)} de ${N} puntos`;
+  { const nu = nulCount(S), tt = N - nu; $('ex-info').textContent = `Nota 4.0 con ${+(tt * S.ex).toFixed(2)} de ${tt} puntos${nu ? ` (${nu} anulada${nu === 1 ? '' : 's'})` : ''}`; }
   renderBanner(); $('plan-title').textContent = 'Planilla · ' + (S.title || 'Sin nombre');
   $('counter-scans').textContent = S.records.length;
   const tb = $('tbody');
   if (!S.records.length) tb.innerHTML = '<tr><td colspan="6" class="p-6 text-center text-slate-400">Aún no hay hojas registradas.</td></tr>';
   else tb.innerHTML = S.records.map((r, i) => {
-    const e = evalRec(r), flag = r.answers.slice(0, N).some(a => a === '' || a === '*') ? ' <span title="Tiene respuestas en blanco o dobles" class="text-amber-500">⚠</span>' : '';
+    const e = evalRec(r), fl0 = countFlags(r.answers), flag = (fl0.blanks + fl0.multis) ? ' <span title="Tiene respuestas en blanco o dobles" class="text-amber-500">⚠</span>' : '';
     return `<tr class="hover:bg-slate-50">
       <td class="p-2.5 font-mono">${i + 1}</td>
       <td class="p-2.5"><input value="${esc(r.name)}" onchange="renameRec(${i},this.value)" class="border border-transparent hover:border-slate-300 focus:border-indigo-400 rounded px-1 py-0.5 w-full min-w-[8rem] font-semibold text-slate-800 bg-transparent">${flag}</td>
-      <td class="p-2.5 text-center">${e.score}/${N}</td>
+      <td class="p-2.5 text-center">${e.score}/${e.total}</td>
       <td class="p-2.5 text-center">${e.pct}%</td>
       <td class="p-2.5 text-center"><span class="font-bold px-2 py-0.5 rounded ${gradeCls(e.grade)}">${e.grade.toFixed(1)}</span></td>
       <td class="p-2.5 text-center whitespace-nowrap"><button onclick="editRec(${i})" class="p-1" title="Revisar">✏️</button><button onclick="delRec(${i})" class="p-1 text-rose-500" title="Eliminar">🗑</button></td>
@@ -894,7 +901,7 @@ function renderStats() {
   $('st-avg').textContent = (ev.reduce((a, e) => a + e.grade, 0) / R.length).toFixed(1);
   $('st-pass').textContent = Math.round(ev.filter(e => e.grade >= 4).length / R.length * 100) + '%';
   const errs = Array(N).fill(0);
-  R.forEach(r => r.answers.slice(0, N).forEach((a, q) => { if (a !== S.key[q]) errs[q]++; }));
+  R.forEach(r => r.answers.slice(0, N).forEach((a, q) => { if (S.key[q] !== 'N' && a !== S.key[q]) errs[q]++; }));
   const mx = Math.max(...errs);
   $('st-hard').textContent = mx > 0 ? `P${errs.indexOf(mx) + 1} · ${Math.round(mx / R.length * 100)}% error` : 'Ninguna';
 }
@@ -904,9 +911,9 @@ function exportCSV() {
   const head = ['N°', 'Nombre/RUT', 'Hora', 'Correctas', 'Total', 'Logro %', 'Nota', ...Array.from({ length: N }, (_, i) => 'P' + (i + 1))];
   const rows = S.records.map((r, i) => {
     const e = evalRec(r);
-    return [i + 1, q(r.name), r.time, e.score, N, e.pct, e.grade.toFixed(1).replace('.', ','), ...r.answers.slice(0, N).map(a => a === '' ? '-' : a === '*' ? 'X' : a)];
+    return [i + 1, q(r.name), r.time, e.score, e.total, e.pct, e.grade.toFixed(1).replace('.', ','), ...r.answers.slice(0, N).map((a, qi) => S.key[qi] === 'N' ? 'NULA' : a === '' ? '-' : a === '*' ? 'X' : a)];
   });
-  rows.push([], ['', q('Pauta'), '', '', '', '', '', ...S.key.slice(0, N)], ['', q('Exigencia'), '', '', '', '', Math.round(S.ex * 100) + '%']);
+  rows.push([], ['', q('Pauta'), '', '', '', '', '', ...S.key.slice(0, N).map(a => a === 'N' ? 'NULA' : a)], ['', q('Exigencia'), '', '', '', '', Math.round(S.ex * 100) + '%']);
   // Separador «;» y coma decimal: Excel en configuración regional de Chile lo abre en columnas. BOM para tildes.
   const csv = '\ufeff' + [head, ...rows].map(r => r.join(';')).join('\r\n');
   const a = document.createElement('a');
@@ -923,9 +930,10 @@ function openReview(rec, mode, idx) {
 }
 function renderReview() {
   const e = evalRec(rv.rec);
-  $('rv-sum').textContent = `${e.score}/${N} · ${e.pct}%`;
+  $('rv-sum').textContent = `${e.score}/${e.total} · ${e.pct}%`;
   $('rv-grade').textContent = e.grade.toFixed(1); $('rv-grade').className = 'font-black px-2 py-0.5 rounded ' + gradeCls(e.grade);
   $('rv-grid').innerHTML = rv.rec.answers.slice(0, N).map((a, i) => {
+    if (S.key[i] === 'N') return `<div class="flex items-center justify-between p-1.5 rounded-lg border text-xs bg-slate-100 border-slate-200 opacity-70"><span class="font-bold w-8">#${i + 1}</span><span class="text-[11px] text-slate-500">Anulada · no cuenta</span></div>`;
     const btns = OPTS.map(o => {
       const sel = a === o, ok = sel && o === S.key[i];
       const cls = sel ? (ok ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white') : (o === S.key[i] ? 'bg-white border-2 border-emerald-400 text-slate-700' : 'bg-white border border-slate-300 text-slate-700');
@@ -950,7 +958,7 @@ const nextName = () => `Alumno ${S.records.length + 1}`;
 /* ---------- Resultado instantáneo ---------- */
 function countFlags(ans) {
   let blanks = 0, multis = 0;
-  ans.slice(0, N).forEach(a => { if (a === '') blanks++; else if (a === '*') multis++; });
+  ans.slice(0, N).forEach((a, i) => { if (S.key[i] === 'N') return; if (a === '') blanks++; else if (a === '*') multis++; });
   return { blanks, multis };
 }
 function showPending(res) {
@@ -958,12 +966,12 @@ function showPending(res) {
   const e = evalRec(pending);
   $('instant-card').classList.remove('hidden');
   $('res-title').textContent = nextName();
-  $('res-score').textContent = `${e.score} / ${N}`; $('res-pct').textContent = e.pct + '%';
+  $('res-score').textContent = `${e.score} / ${e.total}`; $('res-pct').textContent = e.pct + '%';
   $('res-grade').textContent = e.grade.toFixed(1); $('res-grade').className = 'text-2xl font-black px-3 py-1 rounded-lg ' + gradeCls(e.grade);
   $('res-state').textContent = e.grade >= 4 ? 'Aprobado' : 'Reprobado'; $('res-state').className = 'font-semibold ' + (e.grade >= 4 ? 'text-emerald-600' : 'text-rose-600');
   const w = $('res-warn'), notes = [], fl = countFlags(pending.answers);
   if (fl.blanks) notes.push(`${fl.blanks} en blanco`); if (fl.multis) notes.push(`${fl.multis} con doble marca`);
-  if (fl.blanks >= Math.ceil(N * 0.66)) notes.push('lectura dudosa: revisa que la hoja esté bien encuadrada');
+  if (fl.blanks >= Math.max(1, Math.ceil(e.total * 0.66))) notes.push('lectura dudosa: revisa que la hoja esté bien encuadrada');
   w.textContent = notes.length ? '⚠ ' + notes.join(' · ') + '. Cuentan como incorrectas; usa «Revisar» si quieres corregirlas.' : '';
   w.classList.toggle('hidden', !notes.length);
   drawPreview(res);
@@ -977,6 +985,7 @@ function drawPreview(res) {
   ctx.putImageData(im, 0, 0); ctx.lineWidth = 3;
   for (let q = 0; q < N; q++) {
     const a = res.answers[q], k = S.key[q];
+    if (k === 'N') continue;   // anulada: sin colores de acierto/error
     for (let j = 0; j < S.k; j++) {
       const { x, y } = OMR.bubbleXY(q, j), o = OPTS[j];
       ctx.beginPath(); ctx.arc(x * L.PX, y * L.PX, (L.bubbleR + 0.8) * L.PX, 0, 7);
@@ -1083,7 +1092,7 @@ function captureFromCamera(fromAuto) {
     if (fromAuto) {
       S.records.push({ name: nextName(), time: new Date().toLocaleTimeString('es-CL'), answers: res.answers });
       persist(); renderAll(); const e = evalRec(S.records[S.records.length - 1]);
-      toast(`✓ Alumno ${S.records.length}: ${e.score}/${N} · nota ${e.grade.toFixed(1)}${(f => f.blanks + f.multis)(countFlags(res.answers)) ? ' ⚠ revisar' : ''}`, 3000);
+      toast(`✓ Alumno ${S.records.length}: ${e.score}/${e.total} · nota ${e.grade.toFixed(1)}${(f => f.blanks + f.multis)(countFlags(res.answers)) ? ' ⚠ revisar' : ''}`, 3000);
     } else showPending(res);
   } finally { busy = false; }
 }
