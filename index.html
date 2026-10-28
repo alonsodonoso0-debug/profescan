@@ -101,11 +101,12 @@
   </div>
 </header>
 
-<nav class="bg-white border-b border-slate-200 max-w-4xl mx-auto w-full flex sticky top-[52px] z-30">
-  <button id="btn-tab-scan" onclick="switchTab('tab-scan')" class="flex-1 py-3 text-sm font-medium border-b-2">📷 Escáner</button>
-  <button id="btn-tab-evals" onclick="switchTab('tab-evals')" class="flex-1 py-3 text-sm font-medium border-b-2">📚 Pruebas</button>
-  <button id="btn-tab-key" onclick="switchTab('tab-key')" class="flex-1 py-3 font-medium border-b-2">✅ Pauta (<span id="n-tab">30</span>)</button>
-  <button id="btn-tab-results" onclick="switchTab('tab-results')" class="flex-1 py-3 font-medium border-b-2">📊 Planilla (<span id="counter-scans">0</span>)</button>
+<nav class="bg-white border-b border-slate-200 max-w-4xl mx-auto w-full flex overflow-x-auto sticky top-[52px] z-30">
+  <button id="btn-tab-scan" onclick="switchTab('tab-scan')" class="flex-1 py-3 px-3 whitespace-nowrap text-sm font-medium border-b-2">📷 Escáner</button>
+  <button id="btn-tab-evals" onclick="switchTab('tab-evals')" class="flex-1 py-3 px-3 whitespace-nowrap text-sm font-medium border-b-2">📚 Pruebas</button>
+  <button id="btn-tab-key" onclick="switchTab('tab-key')" class="flex-1 py-3 px-3 whitespace-nowrap text-sm font-medium border-b-2">✅ Pauta (<span id="n-tab">30</span>)</button>
+  <button id="btn-tab-results" onclick="switchTab('tab-results')" class="flex-1 py-3 px-3 whitespace-nowrap text-sm font-medium border-b-2">📊 Planilla (<span id="counter-scans">0</span>)</button>
+  <button id="btn-tab-analysis" onclick="switchTab('tab-analysis')" class="flex-1 py-3 px-3 whitespace-nowrap text-sm font-medium border-b-2">🔎 Análisis</button>
 </nav>
 
 <main class="max-w-4xl mx-auto w-full p-4 flex-1">
@@ -169,6 +170,10 @@
         <div class="bg-slate-50 p-2 rounded-lg"><span class="text-[10px] text-slate-500 block uppercase font-bold">Logro</span><span id="res-pct" class="font-semibold">-</span></div>
         <div class="bg-slate-50 p-2 rounded-lg"><span class="text-[10px] text-slate-500 block uppercase font-bold">Estado</span><span id="res-state" class="font-semibold">-</span></div>
       </div>
+      <div class="mb-2">
+        <label for="res-name" class="text-[11px] font-semibold text-slate-600 block mb-1">Alumno</label>
+        <input id="res-name" type="text" autocomplete="off" maxlength="80" class="stu-input border border-slate-300 rounded-lg px-3 py-2 text-sm w-full" placeholder="Buscar alumno (nombre o apellido)…">
+      </div>
       <p id="res-warn" class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2 mb-2 hidden"></p>
       <canvas id="res-preview" class="w-full rounded-lg border border-slate-200 mb-2 hidden" style="max-height:340px;object-fit:contain"></canvas>
       <div class="flex gap-2 flex-wrap">
@@ -192,6 +197,14 @@
       <p class="text-[11px] text-slate-500 mt-2">Cada evaluación guarda su pauta, su exigencia y todas las hojas escaneadas. Toca «Escanear» y queda lista; no hay que configurar nada de nuevo.</p>
     </div>
     <div id="eval-list" class="space-y-2"></div>
+    <div class="bg-white rounded-xl border border-slate-200 p-4">
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+        <h3 class="font-bold text-xs uppercase tracking-wider text-slate-700">Listas de curso</h3>
+        <button onclick="openRosterModal()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium px-3 py-1.5 rounded-lg">＋ Importar lista (Excel / CSV)</button>
+      </div>
+      <div id="roster-list" class="space-y-2"></div>
+      <p class="text-[11px] text-slate-500 mt-2">Importa la lista una sola vez y úsala en todas las evaluaciones de ese curso. Al escanear o en la planilla, escribe parte del nombre o apellido y elige al alumno. <button onclick="downloadTemplate()" class="underline text-indigo-600">Descargar plantilla de ejemplo</button></p>
+    </div>
     <div class="bg-white rounded-xl border border-slate-200 p-4">
       <h3 class="font-bold text-xs uppercase tracking-wider text-slate-700 mb-2">Respaldo</h3>
       <div class="flex flex-wrap gap-2">
@@ -242,6 +255,17 @@
 
   <!-- PLANILLA -->
   <section id="tab-results" class="hidden space-y-4">
+    <div class="bg-white rounded-xl border border-slate-200 p-3 space-y-2">
+      <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <label for="sel-roster" class="text-xs font-semibold text-slate-700">Lista de curso:</label>
+        <select id="sel-roster" class="border border-slate-300 rounded px-2 py-1 text-sm bg-white max-w-full" onchange="setRoster(this.value)"></select>
+        <span id="roster-info" class="text-[11px] text-slate-500"></span>
+      </div>
+      <details id="roster-missing" class="hidden">
+        <summary id="roster-missing-sum" class="text-xs font-medium text-amber-700 cursor-pointer"></summary>
+        <div id="roster-missing-list" class="mt-1 text-xs text-slate-600 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-0.5"></div>
+      </details>
+    </div>
     <div class="bg-white rounded-xl border border-slate-200 p-3 flex flex-wrap items-center gap-x-3 gap-y-2">
       <label for="sel-ex2" class="text-xs font-semibold text-slate-700">Exigencia:</label>
       <select id="sel-ex2" class="border border-slate-300 rounded px-2 py-1 text-sm bg-white" onchange="setEx(this.value)"><option value="0.3">30%</option><option value="0.35">35%</option><option value="0.4">40%</option><option value="0.45">45%</option><option value="0.5">50%</option><option value="0.55">55%</option><option value="0.6">60%</option><option value="0.65">65%</option><option value="0.7">70%</option><option value="0.75">75%</option><option value="0.8">80%</option><option value="0.85">85%</option><option value="0.9">90%</option></select>
@@ -272,6 +296,17 @@
       </div>
     </div>
   </section>
+  <!-- ANÁLISIS -->
+  <section id="tab-analysis" class="hidden space-y-4">
+    <div class="bg-white rounded-xl border border-slate-200 p-3 flex flex-wrap items-center justify-between gap-2">
+      <h3 class="font-bold text-xs uppercase tracking-wider text-slate-700">Análisis · <span id="an-title"></span></h3>
+      <div class="flex gap-2">
+        <button onclick="printReport()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-3 py-1.5 rounded-lg font-medium">🖨 Informe</button>
+        <button onclick="exportItemsCSV()" class="text-xs bg-white border border-slate-300 text-slate-600 px-3 py-1.5 rounded-lg">⬇ CSV preguntas</button>
+      </div>
+    </div>
+    <div id="an-body" class="space-y-4"></div>
+  </section>
 </main>
 
 <!-- MODAL IMPRESIÓN -->
@@ -298,7 +333,7 @@
 <div id="modal-review" class="fixed inset-0 bg-black/60 z-50 hidden items-center justify-center p-2">
   <div class="bg-white w-full max-w-3xl rounded-xl max-h-[94vh] flex flex-col overflow-hidden">
     <div class="p-3 border-b border-slate-200 bg-slate-50 flex flex-wrap gap-2 items-center justify-between">
-      <input id="rv-name" type="text" placeholder="Nombre / RUT del alumno" class="border border-slate-300 rounded px-2 py-1 text-sm flex-1 min-w-[10rem]" oninput="rv.rec.name=this.value">
+      <input id="rv-name" type="text" autocomplete="off" placeholder="Buscar alumno…" class="stu-input border border-slate-300 rounded px-2 py-1 text-sm flex-1 min-w-[10rem]" oninput="rv.rec.name=this.value">
       <div class="text-right"><span id="rv-sum" class="text-sm font-semibold"></span> <span id="rv-grade" class="font-black px-2 py-0.5 rounded"></span></div>
     </div>
     <p class="text-[11px] text-slate-500 px-3 pt-2">Toca una letra para corregir lo que leyó el escáner. <b class="text-amber-600">⚠ = marcó dos o más</b>, <b class="text-slate-500">– = en blanco</b> (ambos cuentan como incorrectos).</p>
@@ -310,6 +345,39 @@
     </div>
   </div>
 </div>
+
+<!-- MODAL LISTA DE CURSO -->
+<div id="modal-roster" class="fixed inset-0 bg-black/60 z-50 hidden items-center justify-center p-2">
+  <div class="bg-white w-full max-w-lg rounded-xl max-h-[94vh] flex flex-col overflow-hidden">
+    <div class="p-3 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+      <h3 class="font-bold text-sm">Importar lista de curso</h3>
+      <button onclick="closeModal('modal-roster')" class="text-slate-500 text-lg px-2">✕</button>
+    </div>
+    <div class="p-3 space-y-3 overflow-y-auto">
+      <div>
+        <label for="rm-name" class="text-xs font-medium text-slate-600 block mb-1">Nombre de la lista</label>
+        <input id="rm-name" type="text" maxlength="40" placeholder="Ej: 6° básico A" class="border border-slate-300 rounded px-2 py-1.5 text-sm w-full">
+      </div>
+      <div>
+        <label for="rm-file" class="text-xs font-medium text-slate-600 block mb-1">1) Sube tu archivo de Excel (.xlsx) o CSV</label>
+        <input id="rm-file" type="file" accept=".xlsx,.xls,.csv,.txt,.tsv" class="text-xs w-full" onchange="rmFile(event)">
+        <p class="text-[11px] text-slate-500 mt-1">Una columna con el nombre (o «Apellidos» y «Nombres» por separado) y, si quieres, otra con el RUT. La primera fila puede ser el encabezado.</p>
+      </div>
+      <div>
+        <label for="rm-text" class="text-xs font-medium text-slate-600 block mb-1">2) …o copia las columnas en Excel y pégalas aquí</label>
+        <textarea id="rm-text" rows="4" class="border border-slate-300 rounded px-2 py-1.5 text-xs w-full" oninput="rmText()" placeholder="Pérez González Juan&#9;21.345.678-9"></textarea>
+      </div>
+      <div id="rm-preview" class="text-xs rounded-lg border p-2 hidden"></div>
+      <label class="flex items-center gap-2 text-xs text-slate-700"><input id="rm-use" type="checkbox" checked class="w-4 h-4"> Usar esta lista en la evaluación activa</label>
+      <p class="text-[11px] text-slate-400">La lista se guarda solo en este dispositivo (no se sube a internet) y se incluye en el respaldo.</p>
+    </div>
+    <div class="p-3 border-t border-slate-200 flex gap-2 justify-end bg-slate-50">
+      <button onclick="closeModal('modal-roster')" class="text-sm px-3 py-2 rounded-lg bg-white border border-slate-300">Cancelar</button>
+      <button id="rm-save" onclick="saveRoster()" disabled class="text-sm px-4 py-2 rounded-lg bg-indigo-600 disabled:bg-slate-300 text-white font-medium">Guardar lista</button>
+    </div>
+  </div>
+</div>
+<div id="sg-box" class="hidden fixed z-[80] bg-white border border-slate-300 rounded-lg shadow-lg overflow-y-auto" style="max-height:260px"></div>
 
 <div id="toast" class="fixed bottom-4 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-sm px-4 py-2 rounded-xl shadow-lg z-[60] hidden max-w-[90vw] text-center"></div>
 
@@ -643,7 +711,235 @@ const OMR = (() => {
 })();
 </script>
 
+<!-- ============ LISTAS DE CURSO (importar Excel/CSV, buscar alumnos; sin DOM, probado con xlsx reales) ============ -->
+<script id="roster-core">
+const ROSTER = (() => {
+  const RUT_RE = /^\d{1,2}\.?\d{3}\.?\d{3}-?[\dkK]$/;
+  const ALPHA_RE = /[A-Za-zÀ-ÿ]{2,}/;
+  // Normaliza para comparar nombres: sin tildes, minúsculas, sin signos ni espacios dobles.
+  const norm = s => String(s == null ? '' : s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+
+  // Texto delimitado (CSV con «;» o «,», o columnas pegadas desde Excel con tabulador).
+  function parseDelimited(text) {
+    text = String(text || '').replace(/^﻿/, '');
+    const lines = text.split(/\r?\n/).filter(l => l.trim()).slice(0, 8);
+    const count = (l, d) => { let n = 0, q = false; for (const c of l) { if (c === '"') q = !q; else if (c === d && !q) n++; } return n; };
+    let delim = ',', best = -1;
+    for (const d of ['\t', ';', ',']) { const tot = lines.reduce((a, l) => a + count(l, d), 0); if (tot > best) { best = tot; delim = d; } }
+    const rows = []; let row = [], cur = '', q = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (q) { if (c === '"') { if (text[i + 1] === '"') { cur += '"'; i++; } else q = false; } else cur += c; }
+      else if (c === '"') q = true;
+      else if (c === delim) { row.push(cur); cur = ''; }
+      else if (c === '\n' || c === '\r') { if (c === '\r' && text[i + 1] === '\n') i++; row.push(cur); rows.push(row); row = []; cur = ''; }
+      else cur += c;
+    }
+    if (cur !== '' || row.length) { row.push(cur); rows.push(row); }
+    return rows.map(r => r.map(c => c.trim())).filter(r => r.some(Boolean));
+  }
+
+  // Archivo de texto: UTF-8, o Windows-1252 si no lo es (CSV de Excel en Chile).
+  function decodeText(buf) {
+    try { return new TextDecoder('utf-8', { fatal: true }).decode(buf).replace(/^﻿/, ''); }
+    catch (e) { return new TextDecoder('windows-1252').decode(buf); }
+  }
+
+  // ---- .xlsx sin librerías externas: es un zip con XML ----
+  async function inflate(bytes) {
+    const ds = new DecompressionStream('deflate-raw');
+    return new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(ds)).arrayBuffer());
+  }
+  async function unzip(buf) {
+    const u8 = new Uint8Array(buf), dv = new DataView(buf), files = {};
+    let eocd = -1;
+    for (let i = u8.length - 22; i >= Math.max(0, u8.length - 65557); i--) if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+    if (eocd < 0) throw new Error('no es un zip');
+    const n = dv.getUint16(eocd + 10, true); let p = dv.getUint32(eocd + 16, true);
+    const dec = new TextDecoder();
+    for (let k = 0; k < n; k++) {
+      if (dv.getUint32(p, true) !== 0x02014b50) break;
+      const method = dv.getUint16(p + 10, true), csize = dv.getUint32(p + 20, true), nl = dv.getUint16(p + 28, true), el = dv.getUint16(p + 30, true), cl = dv.getUint16(p + 32, true), off = dv.getUint32(p + 42, true);
+      const name = dec.decode(u8.subarray(p + 46, p + 46 + nl));
+      p += 46 + nl + el + cl;
+      if (!/^xl\/(sharedStrings\.xml|workbook\.xml|_rels\/workbook\.xml\.rels|worksheets\/[^/]+\.xml)$/.test(name)) continue;
+      const lnl = dv.getUint16(off + 26, true), lel = dv.getUint16(off + 28, true), start = off + 30 + lnl + lel;
+      const raw = u8.subarray(start, start + csize);
+      files[name] = dec.decode(method === 0 ? raw : method === 8 ? await inflate(raw) : (() => { throw new Error('compresión no soportada'); })());
+    }
+    return files;
+  }
+  const unxml = s => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&#(\d+);/g, (m, d) => String.fromCharCode(+d)).replace(/&#x([0-9a-f]+);/gi, (m, h) => String.fromCharCode(parseInt(h, 16))).replace(/&amp;/g, '&');
+  const textOf = x => { let t = ''; for (const m of x.matchAll(/<t\b[^>]*>([\s\S]*?)<\/t>/g)) t += m[1]; return unxml(t); };
+  const colIdx = ref => { let n = 0; for (const c of ref.replace(/[^A-Z]/gi, '').toUpperCase()) n = n * 26 + c.charCodeAt(0) - 64; return n - 1; };
+  async function xlsxRows(buf) {
+    const f = await unzip(buf);
+    const shared = f['xl/sharedStrings.xml'] ? [...f['xl/sharedStrings.xml'].matchAll(/<si\b[^>]*>([\s\S]*?)<\/si>/g)].map(m => textOf(m[1])) : [];
+    let sheetName = null;
+    if (f['xl/workbook.xml'] && f['xl/_rels/workbook.xml.rels']) {
+      const rid = (f['xl/workbook.xml'].match(/<sheet\b[^>]*\br:id="([^"]+)"/) || [])[1];
+      if (rid) for (const m of f['xl/_rels/workbook.xml.rels'].matchAll(/<Relationship\b[^>]*>/g)) {
+        if (m[0].includes(`Id="${rid}"`)) { const t = (m[0].match(/Target="([^"]+)"/) || [])[1]; if (t) sheetName = 'xl/' + t.replace(/^\/?(xl\/)?/, ''); }
+      }
+    }
+    if (!sheetName || !f[sheetName]) sheetName = Object.keys(f).filter(k => /^xl\/worksheets\/sheet\d+\.xml$/.test(k)).sort()[0];
+    if (!sheetName) throw new Error('sin hojas');
+    const rows = [];
+    for (const rm of f[sheetName].matchAll(/<row\b[^>]*>([\s\S]*?)<\/row>/g)) {
+      const row = [];
+      for (const cm of rm[1].matchAll(/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
+        const attrs = cm[1], body = cm[2] || '', ref = (attrs.match(/\br="([A-Z]+\d+)"/) || [])[1], t = (attrs.match(/\bt="([^"]+)"/) || [])[1];
+        if (!ref) continue;
+        let v = '';
+        if (t === 's') v = shared[+((body.match(/<v>([\s\S]*?)<\/v>/) || [])[1])] || '';
+        else if (t === 'inlineStr') v = textOf(body);
+        else { const m = body.match(/<v>([\s\S]*?)<\/v>/); v = m ? unxml(m[1]) : ''; }
+        row[colIdx(ref)] = String(v).trim();
+      }
+      for (let i = 0; i < row.length; i++) if (row[i] === undefined) row[i] = '';
+      if (row.some(Boolean)) rows.push(row);
+    }
+    return rows;
+  }
+
+  // De una tabla cualquiera saca nombre y RUT de cada alumno.
+  function extractStudents(rows) {
+    rows = rows.filter(r => r.some(c => String(c).trim()));
+    if (!rows.length) return { students: [], header: false };
+    const first = rows[0].map(c => String(c == null ? '' : c).trim());
+    const hdrRe = /nombre|alumn|estudiante|apellido|\brut\b|\brun\b/i;
+    const header = first.some(c => hdrRe.test(c)) && !first.some(c => RUT_RE.test(c));
+    const body = (header ? rows.slice(1) : rows).map(r => r.map(c => String(c == null ? '' : c).trim()));
+    const ncol = Math.max(...rows.map(r => r.length));
+    let nameCols = [], rutCol = -1;
+    if (header) {
+      rutCol = first.findIndex(c => /\b(rut|run)\b/i.test(c));
+      const ape = first.findIndex(c => /apellido/i.test(c));
+      const nom = first.findIndex((c, i) => i !== ape && /nombre/i.test(c) && !/apellido/i.test(c));
+      const full = first.findIndex(c => /alumn|estudiante/i.test(c));
+      if (ape >= 0 && nom >= 0) nameCols = [ape, nom]; else if (nom >= 0) nameCols = [nom]; else if (ape >= 0) nameCols = [ape]; else if (full >= 0) nameCols = [full];
+    }
+    if (!nameCols.length) {
+      const stats = Array.from({ length: ncol }, (_, c) => {
+        let rut = 0, alpha = 0; for (const r of body) { const v = r[c] || ''; if (RUT_RE.test(v)) rut++; else if (ALPHA_RE.test(v)) alpha++; }
+        return { rut, alpha };
+      });
+      if (rutCol < 0) { const c = stats.findIndex(s => s.rut >= 0.6 * body.length); rutCol = c; }
+      nameCols = stats.map((s, c) => ({ c, s })).filter(o => o.c !== rutCol && o.s.alpha >= 0.7 * body.length).map(o => o.c).slice(0, 3);
+    }
+    if (!nameCols.length) return { students: [], header };
+    const seen = new Set(), students = [];
+    for (const r of body) {
+      const name = nameCols.map(i => r[i] || '').filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+      const rut = rutCol >= 0 ? (r[rutCol] || '') : '';
+      if (name.length < 3 || !/[A-Za-zÀ-ÿ]/.test(name)) continue;
+      const key = norm(name) + '|' + rut; if (seen.has(key)) continue; seen.add(key);
+      students.push({ name: name.slice(0, 80), rut: rut.slice(0, 15) });
+    }
+    return { students: students.slice(0, 400), header, truncated: students.length > 400 };
+  }
+
+  // Alumnos cuyo nombre contiene todas las palabras escritas (sin importar tildes, mayúsculas ni orden).
+  function search(students, query, used, limit = 8) {
+    const toks = norm(query).split(' ').filter(Boolean);
+    return students.filter(s => { const n = norm(s.name); return !(used && used.has(n)) && toks.every(t => n.includes(t)); }).slice(0, limit);
+  }
+  const find = (students, name) => { const n = norm(name); return n ? students.find(s => norm(s.name) === n) || null : null; };
+  return { norm, parseDelimited, decodeText, xlsxRows, extractStudents, search, find, RUT_RE };
+})();
+</script>
+
 <!-- ============ INTERFAZ ============ -->
+<script id="analysis-core">
+/* Análisis de la evaluación: informe por pregunta y detección de respuestas parecidas.
+   Funciones puras (sin DOM): reciben la evaluación e = {n,k,key[]} y los registros [{name,answers[]}]. */
+const ANA = (() => {
+  const LET = 'ABCDE';
+  const validQs = e => { const o = []; for (let q = 0; q < e.n; q++) if (e.key[q] !== 'N') o.push(q); return o; };
+  const zoneOf = errPct => errPct > 60 ? 'critica' : errPct >= 40 ? 'clave' : errPct < 15 ? 'facil' : 'dominada';
+  const discLabel = d => d >= 0.4 ? 'excelente' : d >= 0.3 ? 'buena' : d >= 0.2 ? 'regular' : d >= 0 ? 'baja' : 'negativa';
+
+  function items(e, recs) {
+    const N = recs.length, qs = validQs(e), k = e.k;
+    const tot = recs.map(r => qs.reduce((s, q) => s + (r.answers[q] === e.key[q] ? 1 : 0), 0));
+    const order = tot.map((t, i) => i).sort((a, b) => tot[b] - tot[a] || a - b);
+    const g = Math.max(1, Math.round(N * 0.27));
+    const upper = order.slice(0, g), lower = order.slice(N - g);
+    const out = qs.map(q => {
+      const key = e.key[q], kj = LET.indexOf(key), counts = Array(k).fill(0);
+      let blank = 0, multi = 0, ok = 0;
+      recs.forEach(r => {
+        const a = r.answers[q];
+        if (a === '') blank++; else if (a === '*') multi++;
+        else { const j = LET.indexOf(a); if (j >= 0 && j < k) counts[j]++; }
+        if (a === key) ok++;
+      });
+      const hit = set => set.filter(i => recs[i].answers[q] === key).length / set.length;
+      const D = N >= 8 ? hit(upper) - hit(lower) : null;
+      const errPct = Math.round((1 - ok / N) * 100);
+      let dj = -1; counts.forEach((c, j) => { if (j !== kj && (dj < 0 || c > counts[dj])) dj = j; });
+      const flags = [];
+      if (D !== null && D < 0 && ok < N) flags.push('Discriminación negativa: la aciertan más los alumnos con peor puntaje total que los de mejor puntaje. Revisa la clave o la redacción.');
+      if (dj >= 0 && counts[dj] > ok) flags.push(`El distractor ${LET[dj]} (${Math.round(counts[dj] / N * 100)}%) fue más elegido que la clave: revisa que la pauta esté bien o si la pregunta induce a error.`);
+      else if (dj >= 0 && errPct >= 40 && counts[dj] / N >= 0.3) flags.push(`Confusión concentrada en ${LET[dj]} (${Math.round(counts[dj] / N * 100)}%): suele indicar un error conceptual compartido.`);
+      if (N >= 10 && k >= 3) { const dead = counts.map((c, j) => (j !== kj && c === 0) ? LET[j] : '').filter(Boolean); if (dead.length) flags.push(`Nadie eligió ${dead.join(', ')}: ese distractor no distrae.`); }
+      if (blank / N >= 0.2) flags.push(`${Math.round(blank / N * 100)}% la dejó en blanco: falta de tiempo o de dominio.`);
+      return { q, key, counts, blank, multi, ok, N, okPct: 100 - errPct, errPct, D, disc: D === null ? '' : discLabel(D), zone: zoneOf(errPct), dj, flags };
+    });
+    const sum = { N, valid: qs.length, clave: 0, critica: 0, dominada: 0, facil: 0, meanErr: 0 };
+    out.forEach(it => { sum[it.zone]++; sum.meanErr += it.errPct; });
+    sum.meanErr = out.length ? Math.round(sum.meanErr / out.length) : 0;
+    return { items: out, sum };
+  }
+
+  /* P(K >= k) con K = suma de Bernoulli(p_i) */
+  function tail(ps, kmin) {
+    let d = [1];
+    for (const p of ps) { const nd = Array(d.length + 1).fill(0); for (let i = 0; i < d.length; i++) { nd[i] += d[i] * (1 - p); nd[i + 1] += d[i] * p; } d = nd; }
+    let s = 0; for (let i = kmin; i < d.length; i++) s += d[i]; return Math.min(1, s);
+  }
+
+  function pairs(e, recs) {
+    const N = recs.length, qs = validQs(e), k = e.k;
+    if (N < 8) return { ok: false, reason: 'min', N, list: [], tested: 0 };
+    const kj = qs.map(q => LET.indexOf(e.key[q]));
+    const A = recs.map(r => qs.map(q => { const a = r.answers[q]; const j = LET.indexOf(a); return (j >= 0 && j < k) ? j : -1; }));   // -1 = blanco o doble marca
+    const ansTot = qs.map(() => 0), wrongCnt = qs.map(() => Array(k).fill(0)), wrongTot = qs.map(() => 0);
+    A.forEach(row => row.forEach((j, t) => { if (j < 0) return; ansTot[t]++; if (j !== kj[t]) { wrongCnt[t][j]++; wrongTot[t]++; } }));
+    const eq = qs.map((_, t) => (wrongTot[t] + 0.5) / (ansTot[t] + 1));
+    const eBar = eq.reduce((a, b) => a + b, 0) / (eq.length || 1);
+    const wi = A.map(row => { let a = 0, w = 0; row.forEach((j, t) => { if (j < 0) return; a++; if (j !== kj[t]) w++; }); return { a, r: (w + 0.5) / (a + 1) }; });
+    const list = []; let tested = 0;
+    for (let i = 0; i < N; i++) for (let j = i + 1; j < N; j++) {
+      if (wi[i].a < 10 || wi[j].a < 10) continue;
+      let common = 0, same = 0, sameWrong = 0, sameRight = 0; const sw = [];
+      for (let t = 0; t < qs.length; t++) {
+        const x = A[i][t], y = A[j][t]; if (x < 0 || y < 0) continue;
+        common++; if (x === y) { same++; if (x === kj[t]) sameRight++; else { sameWrong++; sw.push(t); } }
+      }
+      tested++;
+      if (sameWrong < 3 || common < 10) continue;
+      const ps = []; let expected = 0;
+      for (let t = 0; t < qs.length; t++) {
+        const x = A[i][t], y = A[j][t]; if (x < 0 || y < 0) continue;
+        const cnt = wrongCnt[t].slice(); if (x !== kj[t]) cnt[x]--; if (y !== kj[t]) cnt[y]--;
+        let tot = 0, ss = 0; const nl = k - 1;
+        cnt.forEach((c, l) => { if (l !== kj[t]) tot += c + 0.5; });
+        cnt.forEach((c, l) => { if (l !== kj[t]) ss += ((c + 0.5) / tot) ** 2; });
+        const pi = Math.min(0.95, Math.max(0.01, wi[i].r * eq[t] / eBar)), pj = Math.min(0.95, Math.max(0.01, wi[j].r * eq[t] / eBar));
+        const p = pi * pj * ss; ps.push(p); expected += p;
+      }
+      const p = tail(ps, sameWrong);
+      const level = (p < 1e-4 && sameWrong >= 5) ? 'alto' : (p < 1e-3 && sameWrong >= 4) ? 'medio' : '';
+      if (!level) continue;
+      list.push({ i, j, common, same, sameWrong, sameRight, wrongQs: sw.map(t => ({ q: qs[t], l: LET[A[i][t]] })), expected, p, level });
+    }
+    list.sort((a, b) => a.p - b.p || b.sameWrong - a.sameWrong);
+    return { ok: true, N, list, tested };
+  }
+  return { items, pairs, validQs, zoneOf, discLabel };
+})();
+</script>
 <script>
 const KEY = 'profescan.v3';              // base con todas las evaluaciones guardadas
 const OLD_KEYS = ['profescan.v2', 'profescan.v1'];
@@ -652,7 +948,7 @@ let N, OPTS;          // N = preguntas evaluadas (1 a 30); OPTS = alternativas
 const uid = () => 'e' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const defaultKey = () => Array.from({ length: SHEET_N }, (_, i) => 'ABCD'[i % 4]);
 function newEval(title, base) {
-  return Object.assign({ id: uid(), title: title || '', n: 30, k: 4, key: defaultKey(), keySet: false, ex: 0.6, records: [], created: Date.now(), updated: Date.now() }, base || {});
+  return Object.assign({ id: uid(), title: title || '', n: 30, k: 4, key: defaultKey(), keySet: false, ex: 0.6, rosterId: '', records: [], created: Date.now(), updated: Date.now() }, base || {});
 }
 // Acepta formatos anteriores o de un respaldo y devuelve una evaluación válida (o null).
 function normEval(s) {
@@ -664,18 +960,28 @@ function normEval(s) {
     return { name: String(r.name || '').slice(0, 80), time: String(r.time || ''), answers: ans };
   });
   const id = String(s.id || '').replace(/[^\w-]/g, '') || uid();
-  return { id, title: String(s.title || '').slice(0, 40), n, k, key, keySet: s.keySet !== false, ex: (s.ex >= 0.3 && s.ex <= 0.9) ? Math.round(s.ex * 100) / 100 : 0.6, records, created: +s.created || Date.now(), updated: +s.updated || Date.now() };
+  return { id, title: String(s.title || '').slice(0, 40), n, k, key, keySet: s.keySet !== false, ex: (s.ex >= 0.3 && s.ex <= 0.9) ? Math.round(s.ex * 100) / 100 : 0.6, rosterId: String(s.rosterId || '').replace(/[^\w-]/g, ''), records, created: +s.created || Date.now(), updated: +s.updated || Date.now() };
+}
+function normRoster(r) {
+  if (!r || typeof r !== 'object') return null;
+  const students = (Array.isArray(r.students) ? r.students : []).map(x => ({ name: String(x && x.name || '').slice(0, 80), rut: String(x && x.rut || '').slice(0, 15) })).filter(x => x.name.length >= 2).slice(0, 400);
+  return { id: String(r.id || '').replace(/[^\w-]/g, '') || uid(), name: String(r.name || 'Lista de curso').slice(0, 40), students };
+}
+function finishDB(evals, cur, rosters) {
+  const ros = (rosters || []).map(normRoster).filter(Boolean);
+  evals.forEach(e => { if (!ros.some(r => r.id === e.rosterId)) e.rosterId = ''; });
+  return { evals, cur: evals.some(e => e.id === cur) ? cur : evals[0].id, rosters: ros };
 }
 function loadDB() {
   try {
     const d = JSON.parse(localStorage.getItem(KEY));
-    if (d && Array.isArray(d.evals)) { const ev = d.evals.map(normEval).filter(Boolean); if (ev.length) return { evals: ev, cur: ev.some(e => e.id === d.cur) ? d.cur : ev[0].id }; }
+    if (d && Array.isArray(d.evals)) { const ev = d.evals.map(normEval).filter(Boolean); if (ev.length) return finishDB(ev, d.cur, d.rosters); }
   } catch (e) {}
   for (const k of OLD_KEYS) {   // migra lo guardado por versiones anteriores (una sola evaluación)
-    try { const e = normEval(JSON.parse(localStorage.getItem(k))); if (e) { e.title = e.title || 'Mi evaluación'; return { evals: [e], cur: e.id }; } } catch (e) {}
+    try { const e = normEval(JSON.parse(localStorage.getItem(k))); if (e) { e.title = e.title || 'Mi evaluación'; return finishDB([e], e.id, []); } } catch (e) {}
   }
   const e = newEval('Mi primera evaluación');
-  return { evals: [e], cur: e.id };
+  return finishDB([e], e.id, []);
 }
 let DB = loadDB();
 let S = DB.evals.find(e => e.id === DB.cur);   // evaluación activa
@@ -714,11 +1020,12 @@ function toast(msg, ms = 2500) {
   clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.add('hidden'), ms);
 }
 function switchTab(id) {
-  ['tab-scan', 'tab-evals', 'tab-key', 'tab-results'].forEach(t => {
+  ['tab-scan', 'tab-evals', 'tab-key', 'tab-results', 'tab-analysis'].forEach(t => {
     $(t).classList.toggle('hidden', t !== id);
-    $('btn-' + t).className = 'flex-1 py-3 text-sm font-medium border-b-2 ' + (t === id ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500');
+    $('btn-' + t).className = 'flex-1 py-3 px-3 whitespace-nowrap text-sm font-medium border-b-2 ' + (t === id ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500');
   });
   if (id === 'tab-evals') renderEvals();
+  if (id === 'tab-analysis') renderAnalysis();
 }
 function openModal(id) { $(id).classList.remove('hidden'); $(id).classList.add('flex'); }
 function closeModal(id) { $(id).classList.add('hidden'); $(id).classList.remove('flex'); }
@@ -791,7 +1098,7 @@ function createEval() {
 }
 function dupEval(id) {
   const src = DB.evals.find(x => x.id === id); if (!src) return;
-  const e = newEval((src.title || 'Evaluación') + ' (copia)', { n: src.n, k: src.k, key: src.key.slice(), keySet: src.keySet, ex: src.ex });
+  const e = newEval((src.title || 'Evaluación') + ' (copia)', { n: src.n, k: src.k, key: src.key.slice(), keySet: src.keySet, ex: src.ex, rosterId: src.rosterId });
   DB.evals.push(e); selectEval(e.id); toast('Copia creada con la misma pauta, sin alumnos.', 3500);
 }
 function renameEval(id) {
@@ -812,11 +1119,12 @@ function pickEval(id, el) {
   selectEval(id); toast('Evaluación activa cambiada.', 2000);
 }
 function renderEvals() {
+  renderRosters();
   const list = DB.evals.slice().sort((a, b) => b.updated - a.updated);
   $('eval-list').innerHTML = list.map(e => {
     const act = e === S, rs = e.records.map(r => evalOf(e, r));
     const avg = rs.length ? (rs.reduce((a, x) => a + x.grade, 0) / rs.length).toFixed(1) : '--';
-    const nu = nulCount(e), meta = `${e.n} preguntas${nu ? ` (${nu} anulada${nu === 1 ? '' : 's'})` : ''} · A–${OMR.L.OPTS[e.k - 1]} · exigencia ${Math.round(e.ex * 100)}% · ${e.records.length === 1 ? '1 alumno' : e.records.length + ' alumnos'} · promedio ${avg} · ${new Date(e.updated).toLocaleDateString('es-CL')}`;
+    const rn = (DB.rosters.find(r => r.id === e.rosterId) || {}).name, nu = nulCount(e), meta = `${rn ? 'Lista ' + rn + ' · ' : ''}${e.n} preguntas${nu ? ` (${nu} anulada${nu === 1 ? '' : 's'})` : ''} · A–${OMR.L.OPTS[e.k - 1]} · exigencia ${Math.round(e.ex * 100)}% · ${e.records.length === 1 ? '1 alumno' : e.records.length + ' alumnos'} · promedio ${avg} · ${new Date(e.updated).toLocaleDateString('es-CL')}`;
     return `<div class="bg-white rounded-xl border p-3 ${act ? 'border-indigo-500 ring-2 ring-indigo-100' : 'border-slate-200'}">
       <div class="flex items-start gap-3">
         <label class="flex flex-col items-center gap-0.5 shrink-0 cursor-pointer pt-0.5" title="Marca para usar esta evaluación en el escáner">
@@ -844,7 +1152,7 @@ function renderEvals() {
     </div>`; }).join('');
 }
 function exportBackup() {
-  const blob = new Blob([JSON.stringify({ app: 'profescan', version: 3, exportado: new Date().toISOString(), evals: DB.evals })], { type: 'application/json' });
+  const blob = new Blob([JSON.stringify({ app: 'profescan', version: 3, exportado: new Date().toISOString(), evals: DB.evals, rosters: DB.rosters })], { type: 'application/json' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `profescan_respaldo_${new Date().toISOString().slice(0, 10)}.json`;
   document.body.appendChild(a); a.click(); a.remove(); toast('Respaldo descargado.');
 }
@@ -858,6 +1166,8 @@ function importBackup(ev) {
       const dup = list.filter(e => DB.evals.some(x => x.id === e.id)).length;
       if (!confirm(`El respaldo trae ${list.length} evaluación(es).${dup ? ` ${dup} ya existe(n) aquí y se reemplazará(n) por la versión del respaldo.` : ''} ¿Restaurar?`)) return;
       list.forEach(e => { const i = DB.evals.findIndex(x => x.id === e.id); if (i >= 0) DB.evals[i] = e; else DB.evals.push(e); });
+      (Array.isArray(d.rosters) ? d.rosters : []).map(normRoster).filter(Boolean).forEach(r => { const i = DB.rosters.findIndex(x => x.id === r.id); if (i >= 0) DB.rosters[i] = r; else DB.rosters.push(r); });
+      DB.evals.forEach(e => { if (!DB.rosters.some(r => r.id === e.rosterId)) e.rosterId = ''; });
       S = DB.evals.find(e => e.id === S.id) || DB.evals[0]; pending = null; applyLayout();
       persist(false); renderKey(); renderAll(); renderEvals(); toast(`Respaldo restaurado (${list.length}).`, 3500);
     } catch (e) { toast('Ese archivo no es un respaldo válido de ProfeScan.', 4000); }
@@ -873,6 +1183,7 @@ function setEx(v) {
   toast(`Exigencia ${Math.round(S.ex * 100)}%: las notas se recalcularon.`, 3000);
 }
 function renderAll(skipKey) {
+  renderRosterBox();
   $('sel-ex2').value = String(S.ex);
   { const nu = nulCount(S), tt = N - nu; $('ex-info').textContent = `Nota 4.0 con ${+(tt * S.ex).toFixed(2)} de ${tt} puntos${nu ? ` (${nu} anulada${nu === 1 ? '' : 's'})` : ''}`; }
   renderBanner(); $('plan-title').textContent = 'Planilla · ' + (S.title || 'Sin nombre');
@@ -880,18 +1191,153 @@ function renderAll(skipKey) {
   const tb = $('tbody');
   if (!S.records.length) tb.innerHTML = '<tr><td colspan="6" class="p-6 text-center text-slate-400">Aún no hay hojas registradas.</td></tr>';
   else tb.innerHTML = S.records.map((r, i) => {
-    const e = evalRec(r), fl0 = countFlags(r.answers), flag = (fl0.blanks + fl0.multis) ? ' <span title="Tiene respuestas en blanco o dobles" class="text-amber-500">⚠</span>' : '';
+    const rs0 = curRoster(), st0 = rs0 && ROSTER.find(rs0.students, r.name), e = evalRec(r), fl0 = countFlags(r.answers), flag = (fl0.blanks + fl0.multis) ? ' <span title="Tiene respuestas en blanco o dobles" class="text-amber-500">⚠</span>' : '';
     return `<tr class="hover:bg-slate-50">
       <td class="p-2.5 font-mono">${i + 1}</td>
-      <td class="p-2.5"><input value="${esc(r.name)}" onchange="renameRec(${i},this.value)" class="border border-transparent hover:border-slate-300 focus:border-indigo-400 rounded px-1 py-0.5 w-full min-w-[8rem] font-semibold text-slate-800 bg-transparent">${flag}</td>
+      <td class="p-2.5"><input value="${esc(r.name)}" data-idx="${i}" autocomplete="off" placeholder="Buscar alumno…" onchange="renameRec(${i},this.value)" class="stu-input border border-transparent hover:border-slate-300 focus:border-indigo-400 rounded px-1 py-0.5 w-full min-w-[8rem] font-semibold text-slate-800 bg-transparent">${st0 && st0.rut ? `<div class="text-[10px] text-slate-400 px-1">${esc(st0.rut)}</div>` : ''}${flag}</td>
       <td class="p-2.5 text-center">${e.score}/${e.total}</td>
       <td class="p-2.5 text-center">${e.pct}%</td>
       <td class="p-2.5 text-center"><span class="font-bold px-2 py-0.5 rounded ${gradeCls(e.grade)}">${e.grade.toFixed(1)}</span></td>
       <td class="p-2.5 text-center whitespace-nowrap"><button onclick="editRec(${i})" class="p-1" title="Revisar">✏️</button><button onclick="delRec(${i})" class="p-1 text-rose-500" title="Eliminar">🗑</button></td>
     </tr>`; }).join('');
   renderStats();
+  { const ta = $('tab-analysis'); if (ta && !ta.classList.contains('hidden')) renderAnalysis(); }
 }
-function renameRec(i, v) { S.records[i].name = v.trim() || `Alumno ${i + 1}`; persist(); }
+/* ---------- Lista de curso y búsqueda de alumnos ---------- */
+const curRoster = () => DB.rosters.find(r => r.id === S.rosterId) || null;
+function usedNames(skipIdx) {
+  const u = new Set();
+  S.records.forEach((r, i) => { if (i !== skipIdx) { const n = ROSTER.norm(r.name); if (n) u.add(n); } });
+  return u;
+}
+function studentFor(v) {   // coincidencia exacta, o única si lo escrito solo calza con un alumno de la lista
+  const R = curRoster(); if (!R || !ROSTER.norm(v)) return null;
+  const ex = ROSTER.find(R.students, v); if (ex) return ex;
+  const l = ROSTER.search(R.students, v, new Set(), 2); return l.length === 1 ? l[0] : null;
+}
+function dupWarn(st, skipIdx) {
+  if (st && usedNames(skipIdx).has(ROSTER.norm(st.name))) toast(`Ojo: ya hay otra hoja asignada a ${st.name}.`, 4500);
+}
+function renameRec(i, v) {
+  v = v.trim(); const st = studentFor(v);
+  dupWarn(st, i);
+  S.records[i].name = st ? st.name : (v || `Alumno ${i + 1}`); persist(); renderAll();
+}
+function setRoster(id) {
+  if (id === '__new') { renderRosterBox(); openRosterModal(); return; }
+  S.rosterId = DB.rosters.some(r => r.id === id) ? id : ''; persist(); renderAll(); renderRosters();
+}
+function renderRosterBox() {
+  const sel = $('sel-roster'); if (!sel) return;
+  sel.innerHTML = '<option value="">— sin lista —</option>' + DB.rosters.map(r => `<option value="${esc(r.id)}">${esc(r.name)} (${r.students.length})</option>`).join('') + '<option value="__new">＋ Importar lista nueva…</option>';
+  sel.value = S.rosterId || '';
+  const R = curRoster(), info = $('roster-info'), det = $('roster-missing');
+  if (!R) { info.textContent = DB.rosters.length ? 'Elige una lista para buscar alumnos por nombre.' : 'Importa la lista de tu curso para asignar cada hoja a un alumno buscando su nombre.'; det.classList.add('hidden'); return; }
+  const used = usedNames(-1), miss = R.students.filter(s => !used.has(ROSTER.norm(s.name)));
+  info.textContent = `${R.students.length - miss.length} de ${R.students.length} alumnos con hoja`;
+  det.classList.toggle('hidden', !miss.length);
+  $('roster-missing-sum').textContent = `Faltan ${miss.length} alumno${miss.length === 1 ? '' : 's'} por evaluar`;
+  $('roster-missing-list').innerHTML = miss.map(s => `<div>${esc(s.name)}</div>`).join('');
+}
+function renderRosters() {
+  const box = $('roster-list'); if (!box) return;
+  if (!DB.rosters.length) { box.innerHTML = '<p class="text-xs text-slate-500">Aún no hay listas. Importa la de tu curso para buscar alumnos por nombre al escanear.</p>'; return; }
+  box.innerHTML = DB.rosters.map(r => {
+    const use = S.rosterId === r.id;
+    return `<div class="flex items-center justify-between gap-2 p-2 rounded-lg bg-slate-50 border border-slate-200">
+      <div class="min-w-0"><div class="font-semibold text-sm truncate">${esc(r.name)}${use ? ' <span class="ml-1 text-[10px] bg-indigo-50 border border-indigo-200 text-indigo-700 px-2 py-0.5 rounded-full align-middle">en esta evaluación</span>' : ''}</div><div class="text-[11px] text-slate-500">${r.students.length} alumnos</div></div>
+      <div class="flex gap-1 shrink-0 items-center">${use ? '' : `<button onclick="setRoster('${r.id}')" class="text-xs bg-white border border-indigo-300 text-indigo-700 px-2 py-1 rounded-lg">Usar en la activa</button>`}
+        <button onclick="renameRoster('${r.id}')" class="p-1" title="Cambiar nombre">✏️</button><button onclick="deleteRoster('${r.id}')" class="p-1 text-rose-500" title="Eliminar">🗑</button></div>
+    </div>`; }).join('');
+}
+function renameRoster(id) {
+  const r = DB.rosters.find(x => x.id === id); if (!r) return;
+  const v = prompt('Nombre de la lista:', r.name); if (v === null) return;
+  r.name = v.trim().slice(0, 40) || r.name; persist(false); renderRosters(); renderRosterBox();
+}
+function deleteRoster(id) {
+  const r = DB.rosters.find(x => x.id === id); if (!r) return;
+  if (!confirm(`¿Eliminar la lista «${r.name}» (${r.students.length} alumnos)? Las hojas ya asignadas conservan el nombre.`)) return;
+  DB.rosters = DB.rosters.filter(x => x !== r); DB.evals.forEach(e => { if (e.rosterId === id) e.rosterId = ''; });
+  persist(false); renderRosters(); renderAll();
+}
+function downloadBlob(blob, name) {
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+}
+function downloadTemplate() {
+  downloadBlob(new Blob(['\ufeffApellidos;Nombres;RUT\r\nPérez González;Juan Andrés;12.345.678-9\r\nMuñoz Soto;María José;23.456.789-0\r\n'], { type: 'text/csv;charset=utf-8' }), 'plantilla_lista_curso.csv');
+}
+/* importación */
+let rm = { students: [], error: '', touched: false };
+function openRosterModal() {
+  rm = { students: [], error: '', touched: false };
+  $('rm-name').value = ''; $('rm-text').value = ''; $('rm-file').value = ''; $('rm-use').checked = true; rmPreview(); openModal('modal-roster');
+}
+function rmApply(rows, srcName) {
+  const r = ROSTER.extractStudents(rows); rm.students = r.students; rm.truncated = !!r.truncated; rm.touched = true;
+  if (srcName && !$('rm-name').value.trim()) $('rm-name').value = srcName.replace(/\.[^.]+$/, '').slice(0, 40);
+  rmPreview();
+}
+async function rmFile(ev) {
+  const f = ev.target.files[0]; if (!f) return;
+  $('rm-text').value = ''; rm.error = '';
+  try {
+    let rows;
+    if (/\.xlsx$/i.test(f.name)) rows = await ROSTER.xlsxRows(await f.arrayBuffer());
+    else if (/\.xls$/i.test(f.name)) { rm.students = []; rm.touched = true; rm.error = 'Ese es un Excel antiguo (.xls). En Excel usa Archivo → Guardar como → «Libro de Excel (.xlsx)» o CSV, o copia las columnas y pégalas abajo.'; rmPreview(); return; }
+    else rows = ROSTER.parseDelimited(ROSTER.decodeText(await f.arrayBuffer()));
+    rmApply(rows, f.name);
+  } catch (e) { rm.students = []; rm.touched = true; rm.error = 'No pude leer ese archivo. Prueba guardándolo como CSV, o copia las columnas en Excel y pégalas abajo.'; rmPreview(); }
+}
+function rmText() { rm.error = ''; $('rm-file').value = ''; rmApply(ROSTER.parseDelimited($('rm-text').value)); }
+function rmPreview() {
+  const box = $('rm-preview'), n = rm.students.length;
+  $('rm-save').disabled = !n;
+  if (!rm.touched) { box.classList.add('hidden'); return; }
+  box.classList.remove('hidden');
+  if (!n) { box.className = 'text-xs rounded-lg border p-2 bg-amber-50 border-amber-200 text-amber-800'; box.textContent = rm.error || 'No encontré nombres en esos datos. Necesito al menos una columna con el nombre de cada alumno (y opcionalmente otra con el RUT).'; return; }
+  box.className = 'text-xs rounded-lg border p-2 bg-emerald-50 border-emerald-200 text-emerald-800';
+  box.innerHTML = `<b>${n} alumno${n === 1 ? '' : 's'} detectado${n === 1 ? '' : 's'}</b>${rm.truncated ? ' (se usarán los primeros 400)' : ''}. Revisa que se vean bien:<br>` + rm.students.slice(0, 5).map(s => `• ${esc(s.name)}${s.rut ? ' — ' + esc(s.rut) : ''}`).join('<br>') + (n > 5 ? `<br>… y ${n - 5} más` : '');
+}
+function saveRoster() {
+  if (!rm.students.length) return;
+  const name = $('rm-name').value.trim().slice(0, 40) || `Lista ${DB.rosters.length + 1}`;
+  const r = { id: uid(), name, students: rm.students };
+  DB.rosters.push(r); if ($('rm-use').checked) S.rosterId = r.id;
+  persist(); closeModal('modal-roster'); renderAll(); renderRosters(); toast(`Lista «${name}» guardada (${r.students.length} alumnos).`, 3500);
+}
+/* sugerencias al escribir */
+const sg = { inp: null, list: [], silent: false };
+const sgIdx = inp => (inp.dataset.idx === undefined || inp.dataset.idx === '') ? -1 : +inp.dataset.idx;
+function hideSuggest() { const b = $('sg-box'); if (b) b.classList.add('hidden'); sg.inp = null; }
+function showSuggest(inp) {
+  const R = curRoster(), box = $('sg-box');
+  if (!R) { hideSuggest(); return; }
+  const list = ROSTER.search(R.students, inp.value, usedNames(sgIdx(inp)), 8);
+  if (!list.length) { hideSuggest(); return; }
+  sg.inp = inp; sg.list = list;
+  box.innerHTML = list.map((s, i) => `<button type="button" data-i="${i}" class="block w-full text-left px-3 py-2 text-sm hover:bg-slate-100 border-b border-slate-100">${esc(s.name)}${s.rut ? ` <span class="text-[11px] text-slate-400">${esc(s.rut)}</span>` : ''}</button>`).join('');
+  const r = inp.getBoundingClientRect(), w = Math.min(Math.max(r.width, 260), innerWidth - 16);
+  box.classList.remove('hidden'); box.style.width = w + 'px'; box.style.left = Math.max(8, Math.min(r.left, innerWidth - w - 8)) + 'px';
+  const h = box.offsetHeight; box.style.top = ((r.bottom + h + 6 > innerHeight && r.top > h + 6) ? r.top - h - 2 : r.bottom + 2) + 'px';
+}
+function pickSuggest(i) {
+  const s = sg.list[i], inp = sg.inp; if (!s || !inp) return;
+  inp.value = s.name; sg.silent = true; hideSuggest();
+  inp.dispatchEvent(new Event('input', { bubbles: true })); inp.dispatchEvent(new Event('change', { bubbles: true })); sg.silent = false;
+}
+if (document.addEventListener) {
+  const isStu = el => el && el.classList && el.classList.contains('stu-input');
+  document.addEventListener('input', e => { if (!sg.silent && isStu(e.target)) showSuggest(e.target); });
+  document.addEventListener('focusin', e => { if (isStu(e.target)) showSuggest(e.target); });
+  document.addEventListener('pointerdown', e => {
+    const b = e.target.closest && e.target.closest('#sg-box button');
+    if (b && sg.inp) { e.preventDefault(); pickSuggest(+b.dataset.i); } else if (!isStu(e.target)) hideSuggest();
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') hideSuggest(); });
+  window.addEventListener('scroll', hideSuggest, true); window.addEventListener('resize', hideSuggest);
+}
 function delRec(i) { if (confirm('¿Eliminar este registro?')) { S.records.splice(i, 1); persist(); renderAll(); } }
 function clearAll() { if (S.records.length && confirm(`¿Vaciar los ${S.records.length} registros? Esta acción no se puede deshacer.`)) { S.records = []; persist(); renderAll(); } }
 function renderStats() {
@@ -907,13 +1353,15 @@ function renderStats() {
 }
 function exportCSV() {
   if (!S.records.length) { toast('No hay registros para exportar.'); return; }
-  const q = v => '"' + String(v).replace(/"/g, '""') + '"';
-  const head = ['N°', 'Nombre/RUT', 'Hora', 'Correctas', 'Total', 'Logro %', 'Nota', ...Array.from({ length: N }, (_, i) => 'P' + (i + 1))];
+  const q = v => '"' + String(v).replace(/"/g, '""') + '"', R = curRoster();
+  const head = ['N°', 'Nombre', 'RUT', 'Hora', 'Correctas', 'Total', 'Logro %', 'Nota', ...Array.from({ length: N }, (_, i) => 'P' + (i + 1))];
   const rows = S.records.map((r, i) => {
     const e = evalRec(r);
-    return [i + 1, q(r.name), r.time, e.score, e.total, e.pct, e.grade.toFixed(1).replace('.', ','), ...r.answers.slice(0, N).map((a, qi) => S.key[qi] === 'N' ? 'NULA' : a === '' ? '-' : a === '*' ? 'X' : a)];
+    const st = R && ROSTER.find(R.students, r.name);
+    return [i + 1, q(r.name), st ? st.rut : '', r.time, e.score, e.total, e.pct, e.grade.toFixed(1).replace('.', ','), ...r.answers.slice(0, N).map((a, qi) => S.key[qi] === 'N' ? 'NULA' : a === '' ? '-' : a === '*' ? 'X' : a)];
   });
-  rows.push([], ['', q('Pauta'), '', '', '', '', '', ...S.key.slice(0, N).map(a => a === 'N' ? 'NULA' : a)], ['', q('Exigencia'), '', '', '', '', Math.round(S.ex * 100) + '%']);
+  if (R) { const used = usedNames(-1); R.students.filter(s => !used.has(ROSTER.norm(s.name))).forEach(s => rows.push(['', q(s.name), s.rut, 'SIN HOJA'])); }
+  rows.push([], ['', q('Pauta'), '', '', '', '', '', '', ...S.key.slice(0, N).map(a => a === 'N' ? 'NULA' : a)], ['', q('Exigencia'), '', '', '', '', '', Math.round(S.ex * 100) + '%']);
   // Separador «;» y coma decimal: Excel en configuración regional de Chile lo abre en columnas. BOM para tildes.
   const csv = '\ufeff' + [head, ...rows].map(r => r.join(';')).join('\r\n');
   const a = document.createElement('a');
@@ -922,10 +1370,144 @@ function exportCSV() {
   document.body.appendChild(a); a.click(); a.remove();
 }
 
+/* ---------- Análisis: informe de preguntas y posibles copias ---------- */
+const ZONE = {
+  clave:    { name: 'Zona 40–60 %', color: '#0074FF', badge: 'bg-indigo-50 border-indigo-200 text-indigo-700' },
+  critica:  { name: 'Crítica (>60 % error)', color: '#e11d48', badge: 'bg-rose-100 border-rose-200 text-rose-700' },
+  dominada: { name: 'Dominada', color: '#10b981', badge: 'bg-emerald-100 border-emerald-200 text-emerald-700' },
+  facil:    { name: 'Muy fácil', color: '#94a3b8', badge: 'bg-slate-100 border-slate-200 text-slate-600' }
+};
+const fmtD = d => d === null ? '—' : (d >= 0 ? '+' : '−') + Math.abs(d).toFixed(2).replace('.', ',');
+function fmtOdds(p) {
+  const v = 1 / Math.max(p, 1e-12);
+  if (v >= 1e6) return 'más de 1.000.000';
+  return (v < 100 ? Math.round(v) : +v.toPrecision(2)).toLocaleString('es-CL');
+}
+const pctOf = (c, n) => Math.round(c / n * 100);
+function distHTML(it) {
+  const rows = it.counts.map((c, j) => { const pc = pctOf(c, it.N), isK = OPTS[j] === it.key;
+    return `<div class="flex items-center gap-1.5 text-[11px]"><span class="w-4 font-bold ${isK ? 'text-emerald-600' : 'text-slate-600'}">${OPTS[j]}</span><div class="flex-1 h-2.5 rounded bg-slate-100 overflow-hidden"><div class="h-full ${isK ? 'bg-emerald-500' : 'bg-rose-400'}" style="width:${pc}%"></div></div><span class="w-9 text-right tabular-nums">${pc}%</span><span class="w-3 text-emerald-600">${isK ? '✓' : ''}</span></div>`; }).join('');
+  const extra = (it.blank || it.multi) ? `<div class="text-[10px] text-slate-400 mt-0.5">${it.blank ? `En blanco ${pctOf(it.blank, it.N)}%` : ''}${it.blank && it.multi ? ' · ' : ''}${it.multi ? `Doble marca ${pctOf(it.multi, it.N)}%` : ''}</div>` : '';
+  return `<div class="space-y-1">${rows}</div>${extra}`;
+}
+function itemCard(it) {
+  const z = ZONE[it.zone];
+  return `<div class="rounded-lg border border-slate-200 p-3 bg-white">
+    <div class="flex flex-wrap items-center gap-x-2 gap-y-1 mb-2"><b class="text-sm">P${it.q + 1}</b>
+      <span class="text-[10px] font-semibold border rounded-full px-2 py-0.5 ${z.badge}">${z.name}</span>
+      <span class="text-xs text-slate-600">${it.errPct}% error · ${it.okPct}% aciertos</span>
+      <span class="text-[11px] text-slate-500 ml-auto">Discriminación ${fmtD(it.D)}${it.disc ? ' (' + it.disc + ')' : ''}</span></div>
+    ${distHTML(it)}
+    ${it.flags.length ? `<ul class="mt-2 text-[11px] text-amber-700 space-y-0.5 list-disc pl-4">${it.flags.map(f => `<li>${esc(f)}</li>`).join('')}</ul>` : ''}
+  </div>`;
+}
+function itemsHTML(A) {
+  const its = A.items, s = A.sum, N = s.N;
+  const stat = (lab, val, cls) => `<div class="bg-white p-3 rounded-xl border border-slate-200 text-center"><span class="text-xs text-slate-500 block">${lab}</span><span class="text-xl font-bold ${cls || ''}">${val}</span></div>`;
+  const bars = its.map(it => `<div class="flex-1 h-full flex items-end" title="P${it.q + 1}: ${it.errPct}% error"><div class="w-full rounded-t-sm" style="height:${Math.max(it.errPct, 1)}%;background:${ZONE[it.zone].color}"></div></div>`).join('');
+  const nums = its.map(it => `<div class="flex-1 text-center text-[8px] text-slate-500 leading-none">${it.q + 1}</div>`).join('');
+  const key = its.filter(i => i.zone === 'clave').sort((a, b) => Math.abs(a.errPct - 50) - Math.abs(b.errPct - 50) || a.q - b.q);
+  const crit = its.filter(i => i.zone === 'critica').sort((a, b) => b.errPct - a.errPct || a.q - b.q);
+  const best = its.filter(i => i.D !== null).sort((a, b) => b.D - a.D)[0];
+  const trow = it => `<tr class="${it.zone === 'clave' ? 'bg-indigo-50' : ''}"><td class="p-1.5 font-semibold">P${it.q + 1}</td><td class="p-1.5 text-center">${it.key}</td><td class="p-1.5 text-center">${it.okPct}%</td><td class="p-1.5 text-center">${it.errPct}%</td><td class="p-1.5 text-center">${pctOf(it.blank, it.N)}%</td>${it.counts.map(c => `<td class="p-1.5 text-center">${pctOf(c, it.N)}%</td>`).join('')}<td class="p-1.5 text-center">${fmtD(it.D)}</td><td class="p-1.5">${ZONE[it.zone].name}</td></tr>`;
+  return `
+  ${N < 10 ? `<div class="text-xs rounded-lg border p-2 bg-amber-50 border-amber-200 text-amber-800">Con ${N} hojas los porcentajes son poco estables (cada alumno pesa ${Math.round(100 / N)}%). Úsalos como orientación.</div>` : ''}
+  <div class="bg-white rounded-xl border border-slate-200 p-3">
+    <h3 class="font-bold text-xs uppercase tracking-wider text-slate-700 mb-1">Informe de preguntas</h3>
+    <p class="text-xs text-slate-600 mb-2">${s.valid} preguntas válidas · ${N} alumnos · error promedio ${s.meanErr}%. ${s.clave ? `<b>${s.clave}</b> están en la zona apalancadora (40–60 % de error)` : 'Ninguna cae en la zona apalancadora (40–60 % de error)'}${s.critica ? `, <b>${s.critica}</b> son críticas (más de 60 % de error)` : ''}${best && best.D > 0 ? `. La que mejor separa a quienes dominan de quienes no: <b>P${best.q + 1}</b> (${fmtD(best.D)}).` : '.'}</p>
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">${stat('Zona 40–60 %', s.clave, 'text-indigo-600')}${stat('Críticas >60 %', s.critica, 'text-rose-600')}${stat('Dominadas', s.dominada + s.facil, 'text-emerald-600')}${stat('Error promedio', s.meanErr + '%')}</div>
+    <div class="text-[11px] text-slate-500 mb-1">% de error por pregunta (franja azul = 40–60 %)</div>
+    <div class="relative h-28 border-b border-l border-slate-300">
+      <div class="absolute inset-x-0" style="bottom:40%;height:20%;background:rgba(0,116,255,.14)"></div>
+      <div class="absolute inset-0 flex items-end gap-px px-px">${bars}</div>
+    </div>
+    <div class="flex gap-px px-px mt-0.5">${nums}</div>
+    <div class="flex flex-wrap gap-x-3 gap-y-0.5 mt-2 text-[10px] text-slate-500">${Object.keys(ZONE).map(z => `<span><span class="inline-block w-2 h-2 rounded-sm align-middle mr-1" style="background:${ZONE[z].color}"></span>${ZONE[z].name}</span>`).join('')}</div>
+  </div>
+  <div class="space-y-2">
+    <h3 class="font-bold text-xs uppercase tracking-wider text-slate-700">Preguntas apalancadoras · 40–60 % de error (${key.length})</h3>
+    <p class="text-xs text-slate-500">Dividen al curso: más o menos la mitad domina el contenido y la otra mitad se confunde. Son las que más informan sobre quién aprendió y dónde está la confusión. Primero las más cercanas al 50 %.</p>
+    ${key.length ? key.map(itemCard).join('') : '<p class="text-xs text-slate-400">Ninguna pregunta cayó en esa franja.</p>'}
+  </div>
+  ${crit.length ? `<div class="space-y-2"><h3 class="font-bold text-xs uppercase tracking-wider text-slate-700">Preguntas críticas · más de 60 % de error (${crit.length})</h3><p class="text-xs text-slate-500">La mayoría no la logró: revisa si el contenido no se alcanzó a enseñar o si la pregunta tiene un problema.</p>${crit.map(itemCard).join('')}</div>` : ''}
+  <details class="bg-white rounded-xl border border-slate-200">
+    <summary class="p-3 text-xs font-semibold text-slate-700 cursor-pointer">Tabla de todas las preguntas</summary>
+    <div class="overflow-x-auto"><table class="w-full text-[11px] text-slate-600 text-left"><thead class="bg-slate-100 text-slate-700"><tr><th class="p-1.5">P</th><th class="p-1.5 text-center">Clave</th><th class="p-1.5 text-center">Acierto</th><th class="p-1.5 text-center">Error</th><th class="p-1.5 text-center">Blanco</th>${OPTS.map(o => `<th class="p-1.5 text-center">${o}</th>`).join('')}<th class="p-1.5 text-center">Disc.</th><th class="p-1.5">Zona</th></tr></thead><tbody class="divide-y divide-slate-100">${its.map(trow).join('')}</tbody></table></div>
+    <p class="p-3 text-[10px] text-slate-400">Disc. = % de aciertos del 27 % con mejor puntaje − % del 27 % con peor puntaje. Sobre +0,30 es buena; negativa indica un problema en la clave o la redacción.</p>
+  </details>`;
+}
+function pairLine(p) {
+  const R = S.records, a = R[p.i].name, b = R[p.j].name;
+  return { a, b, same: `${p.same} de ${p.common} respuestas iguales`, wrong: `${p.sameWrong} errores idénticos (por azar se esperarían ~${p.expected.toFixed(1).replace('.', ',')})`, odds: `1 en ${fmtOdds(p.p)}`, qs: p.wrongQs.map(x => `P${x.q + 1}→${x.l}`).join(', ') };
+}
+function pairsHTML(P) {
+  const head = '<h3 class="font-bold text-xs uppercase tracking-wider text-slate-700">Posibles copias</h3>';
+  const note = '<p class="text-xs text-slate-500">Compara las respuestas de cada par de alumnos. Lo que más pesa son los <b>errores idénticos</b> (marcar la misma alternativa incorrecta), que son raros por azar. Es un indicio estadístico, no una prueba: contrástalo con dónde se sentó cada uno antes de concluir.</p>';
+  if (!P.ok) return `<div class="space-y-2">${head}${note}<p class="text-xs rounded-lg border p-2 bg-amber-50 border-amber-200 text-amber-800">Se necesitan al menos 8 hojas para comparar con confianza (hay ${P.N}).</p></div>`;
+  if (!P.list.length) return `<div class="space-y-2">${head}${note}<p class="text-xs rounded-lg border p-2 bg-emerald-50 border-emerald-200 text-emerald-800">Sin pares sospechosos: se compararon ${P.tested} pares y ninguno tiene coincidencias de error fuera de lo esperable.</p></div>`;
+  const cards = P.list.map(p => { const l = pairLine(p), hi = p.level === 'alto';
+    return `<div class="rounded-lg border p-3 bg-white ${hi ? 'border-rose-300' : 'border-amber-300'}">
+      <div class="flex flex-wrap items-center gap-2 mb-1"><b class="text-sm">${esc(l.a)}</b><span class="text-slate-400">↔</span><b class="text-sm">${esc(l.b)}</b>
+        <span class="text-[10px] font-semibold border rounded-full px-2 py-0.5 ${hi ? 'bg-rose-100 border-rose-200 text-rose-700' : 'bg-amber-100 border-amber-200 text-amber-800'}">${hi ? 'Muy sospechoso' : 'Revisar'}</span></div>
+      <div class="text-xs text-slate-600">${l.same} · <b>${l.wrong}</b></div>
+      <div class="text-[11px] text-slate-500 mt-0.5">Probabilidad de que coincidan así por azar: <b>${l.odds}</b>. Mismo error en: ${esc(l.qs)}.</div>
+    </div>`; }).join('');
+  return `<div class="space-y-2">${head}${note}${cards}<p class="text-[11px] text-slate-400">${P.tested} pares comparados. Con muchos alumnos un par puede salir marcado solo por casualidad: por eso «Revisar» pide tu criterio.</p></div>`;
+}
+function renderAnalysis() {
+  const body = $('an-body'); if (!body) return;
+  $('an-title').textContent = S.title || 'Sin nombre';
+  const n = S.records.length;
+  if (n < 3) { body.innerHTML = `<div class="bg-white rounded-xl border border-slate-200 p-6 text-center text-sm text-slate-500">Necesitas al menos 3 hojas escaneadas para ver el análisis (hay ${n}).</div>`; return; }
+  body.innerHTML = itemsHTML(ANA.items(S, S.records)) + pairsHTML(ANA.pairs(S, S.records));
+}
+function exportItemsCSV() {
+  if (S.records.length < 3) { toast('Necesitas al menos 3 hojas.'); return; }
+  const A = ANA.items(S, S.records), c = v => String(v).replace('.', ',');
+  const head = ['Pregunta', 'Clave', 'Aciertos %', 'Error %', 'En blanco %', 'Doble marca %', ...OPTS.map(o => o + ' %'), 'Discriminación', 'Zona', 'Observaciones'];
+  const rows = A.items.map(it => [it.q + 1, it.key, it.okPct, it.errPct, pctOf(it.blank, it.N), pctOf(it.multi, it.N), ...it.counts.map(x => pctOf(x, it.N)), it.D === null ? '' : c(it.D.toFixed(2)), ZONE[it.zone].name, '"' + it.flags.join(' | ').replace(/"/g, '""') + '"']);
+  const csv = '﻿' + [head, ...rows].map(r => r.join(';')).join('\r\n');
+  downloadBlob(new Blob([csv], { type: 'text/csv;charset=utf-8' }), `preguntas_${(S.title || 'evaluacion').replace(/[^\w\-áéíóúñ]+/gi, '_')}_${new Date().toISOString().slice(0, 10)}.csv`);
+}
+function reportHTML() {
+  const A = ANA.items(S, S.records), P = ANA.pairs(S, S.records), s = A.sum, its = A.items;
+  const fecha = new Date().toLocaleDateString('es-CL');
+  const row = it => `<tr class="${it.zone}"><td>P${it.q + 1}</td><td>${it.key}</td><td>${it.okPct}%</td><td>${it.errPct}%</td><td>${pctOf(it.blank, it.N)}%</td>${it.counts.map(c => `<td>${pctOf(c, it.N)}%</td>`).join('')}<td>${fmtD(it.D)}</td><td>${ZONE[it.zone].name}</td></tr>`;
+  const obs = its.filter(i => i.flags.length).map(i => `<li><b>P${i.q + 1}</b> (${i.errPct}% error): ${i.flags.map(esc).join(' ')}</li>`).join('');
+  const keyQ = its.filter(i => i.zone === 'clave').sort((a, b) => Math.abs(a.errPct - 50) - Math.abs(b.errPct - 50)).map(i => `P${i.q + 1} (${i.errPct}%)`).join(', ') || 'ninguna';
+  const critQ = its.filter(i => i.zone === 'critica').sort((a, b) => b.errPct - a.errPct).map(i => `P${i.q + 1} (${i.errPct}%)`).join(', ') || 'ninguna';
+  let cop;
+  if (!P.ok) cop = `<p>Se necesitan al menos 8 hojas para comparar (hay ${P.N}).</p>`;
+  else if (!P.list.length) cop = `<p>Sin pares sospechosos (${P.tested} pares comparados).</p>`;
+  else cop = `<table><thead><tr><th>Alumnos</th><th>Nivel</th><th>Respuestas iguales</th><th>Errores idénticos</th><th>Por azar</th><th>Mismo error en</th></tr></thead><tbody>${P.list.map(p => { const l = pairLine(p); return `<tr><td>${esc(l.a)} ↔ ${esc(l.b)}</td><td>${p.level === 'alto' ? 'Muy sospechoso' : 'Revisar'}</td><td>${p.same}/${p.common}</td><td>${p.sameWrong} (esperables ~${p.expected.toFixed(1).replace('.', ',')})</td><td>${l.odds}</td><td>${esc(l.qs)}</td></tr>`; }).join('')}</tbody></table>`;
+  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Informe · ${esc(S.title || 'Evaluación')}</title><style>
+  body{font-family:Arial,Helvetica,sans-serif;color:#0f172a;margin:18mm 14mm;font-size:11px;line-height:1.4}
+  h1{font-size:18px;margin:0 0 2px}h2{font-size:13px;margin:18px 0 6px;border-bottom:2px solid #0074FF;padding-bottom:2px;color:#0a3a80}
+  .sub{color:#475569;margin-bottom:8px}table{border-collapse:collapse;width:100%;margin:6px 0}th,td{border:1px solid #cbd5e1;padding:3px 5px;text-align:center}th{background:#e8f1ff}
+  td:first-child,th:first-child{text-align:left}tr.clave td{background:#e8f1ff}tr.critica td{background:#ffe4e6}
+  .box{border:1px solid #cbd5e1;border-radius:6px;padding:6px 8px;margin:6px 0}ul{margin:4px 0 4px 16px;padding:0}.small{color:#64748b;font-size:10px}
+  @media print{body{margin:0}@page{margin:14mm}}</style></head><body>
+  <h1>Informe de la evaluación</h1><div class="sub">${esc(S.title || 'Sin nombre')} · ${S.records.length} alumnos · ${s.valid} preguntas válidas · exigencia ${Math.round(S.ex * 100)}% · ${fecha}</div>
+  <h2>Resumen</h2><div class="box">Error promedio: <b>${s.meanErr}%</b>. Zona apalancadora (40–60 % de error): <b>${s.clave}</b> preguntas. Críticas (&gt;60 %): <b>${s.critica}</b>. Dominadas o muy fáciles (&lt;40 %): <b>${s.dominada + s.facil}</b>.<br>
+  <b>Apalancadoras:</b> ${keyQ}.<br><b>Críticas:</b> ${critQ}.</div>
+  <h2>Detalle por pregunta</h2><table><thead><tr><th>P</th><th>Clave</th><th>Acierto</th><th>Error</th><th>Blanco</th>${OPTS.map(o => `<th>${o}</th>`).join('')}<th>Disc.</th><th>Zona</th></tr></thead><tbody>${its.map(row).join('')}</tbody></table>
+  <div class="small">Las columnas A–${OPTS[OPTS.length - 1]} muestran el % de alumnos que eligió cada alternativa. Disc. = % de aciertos del 27 % con mejor puntaje − % del 27 % con peor puntaje.</div>
+  ${obs ? `<h2>Observaciones</h2><ul>${obs}</ul>` : ''}
+  <h2>Posibles copias</h2>${cop}<div class="small">Indicio estadístico basado en errores idénticos; no es una prueba. Contrástalo con la ubicación de los alumnos en la sala.</div>
+  </body></html>`;
+}
+function printReport() {
+  if (S.records.length < 3) { toast('Necesitas al menos 3 hojas.'); return; }
+  const html = reportHTML();
+  let w = null; try { w = window.open('', '_blank'); } catch (e) {}
+  if (!w) { downloadBlob(new Blob([html], { type: 'text/html;charset=utf-8' }), 'informe_' + (S.title || 'evaluacion').replace(/[^\w\-áéíóúñ]+/gi, '_') + '.html'); toast('Tu navegador bloqueó la ventana: descargué el informe; ábrelo e imprímelo.', 5000); return; }
+  w.document.open(); w.document.write(html); w.document.close(); setTimeout(() => { try { w.focus(); w.print(); } catch (e) {} }, 500);
+}
+
 /* ---------- Revisión manual ---------- */
 function openReview(rec, mode, idx) {
   rv = { rec: { name: rec.name, time: rec.time, answers: rec.answers.slice() }, mode, idx };
-  $('rv-name').value = rv.rec.name; $('rv-del').classList.toggle('hidden', mode !== 'edit');
+  $('rv-name').value = rv.rec.name; $('rv-name').dataset.idx = mode === 'edit' ? String(idx) : ''; $('rv-del').classList.toggle('hidden', mode !== 'edit');
   renderReview(); openModal('modal-review');
 }
 function renderReview() {
@@ -946,7 +1528,8 @@ function renderReview() {
 }
 function rvSet(i, v) { rv.rec.answers[i] = v; renderReview(); }
 function rvSave() {
-  const name = rv.rec.name.trim();
+  const typed = rv.rec.name.trim(), st = studentFor(typed), name = st ? st.name : typed;
+  dupWarn(st, rv.mode === 'edit' ? rv.idx : -1);
   if (rv.mode === 'new') { rv.rec.name = name || nextName(); S.records.push(rv.rec); pending = null; $('instant-card').classList.add('hidden'); }
   else { rv.rec.name = name || S.records[rv.idx].name; S.records[rv.idx] = rv.rec; }
   persist(); renderAll(); closeModal('modal-review'); toast('Guardado.');
@@ -964,6 +1547,7 @@ function countFlags(ans) {
 function showPending(res) {
   pending = { name: '', time: new Date().toLocaleTimeString('es-CL'), answers: res.answers, warped: res.warped };
   const e = evalRec(pending);
+  $('res-name').value = ''; $('res-name').placeholder = curRoster() ? 'Buscar alumno (nombre o apellido)…' : 'Nombre del alumno (opcional)';
   $('instant-card').classList.remove('hidden');
   $('res-title').textContent = nextName();
   $('res-score').textContent = `${e.score} / ${e.total}`; $('res-pct').textContent = e.pct + '%';
@@ -997,8 +1581,10 @@ function drawPreview(res) {
 function reviewPending() { if (pending) openReview(pending, 'new'); }
 function savePending() {
   if (!pending) return;
-  S.records.push({ name: nextName(), time: pending.time, answers: pending.answers });
-  pending = null; $('instant-card').classList.add('hidden'); persist(); renderAll(); toast('Guardado. Listo para el siguiente alumno.');
+  const typed = ($('res-name').value || '').trim(), st = studentFor(typed);
+  dupWarn(st, -1);
+  S.records.push({ name: st ? st.name : (typed || nextName()), time: pending.time, answers: pending.answers });
+  $('res-name').value = ''; pending = null; $('instant-card').classList.add('hidden'); persist(); renderAll(); toast('Guardado. Listo para el siguiente alumno.');
 }
 function discardPending() { pending = null; $('instant-card').classList.add('hidden'); }
 
